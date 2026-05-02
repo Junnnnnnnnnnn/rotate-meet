@@ -27,6 +27,9 @@ body {
   display: flex;
   flex-direction: column;
 }
+@media (max-width: 600px) {
+  .frame { max-width: 100%; }
+}
 
 /* ====== Landing ====== */
 .landing { display: flex; flex-direction: column; }
