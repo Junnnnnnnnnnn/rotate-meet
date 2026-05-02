@@ -1,0 +1,613 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+export function StepHeader({ title, helper }) {
+  return (
+    <>
+      <h2 className="step-title">{title}</h2>
+      {helper && <p className="step-helper">{helper}</p>}
+    </>
+  );
+}
+
+export function ErrText({ msg }) {
+  if (!msg) return null;
+  return <div className="err-text">{msg}</div>;
+}
+
+export function ShakeWrap({ shakeKey, children }) {
+  const ref = useRef(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    if (shakeKey > 0 && shakeKey !== prev.current && ref.current) {
+      const el = ref.current;
+      el.classList.remove('shaking');
+      void el.offsetWidth;
+      el.classList.add('shaking');
+    }
+    prev.current = shakeKey;
+  }, [shakeKey]);
+  return <div className="shake-wrap" ref={ref}>{children}</div>;
+}
+
+function Step1({ data, update, errors }) {
+  const onPhone = (v) => {
+    const digits = v.replace(/\D/g, '').slice(0, 11);
+    let f = digits;
+    if (digits.length > 3 && digits.length <= 7) f = digits.slice(0, 3) + '-' + digits.slice(3);
+    else if (digits.length > 7) f = digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7);
+    update({ phone: f });
+  };
+  const onBirth = (v) => {
+    const digits = v.replace(/\D/g, '').slice(0, 8);
+    let f = digits;
+    if (digits.length > 4 && digits.length <= 6) f = digits.slice(0, 4) + '-' + digits.slice(4);
+    else if (digits.length > 6) f = digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6);
+    update({ birthdate: f });
+  };
+  return (
+    <>
+      <StepHeader title="먼저, 어떻게 불러드릴까요?" helper="실명을 입력해주세요. 매칭 시 사용돼요." />
+      <div className="field">
+        <label className="field-label">이름<span className="req">*</span></label>
+        <input
+          className={`text-input ${errors.name ? 'err' : ''}`}
+          value={data.name}
+          onChange={(e) => update({ name: e.target.value })}
+          placeholder="홍길동"
+        />
+        <ErrText msg={errors.name} />
+      </div>
+      <div className="field">
+        <label className="field-label">연락처<span className="req">*</span></label>
+        <input
+          className={`text-input ${errors.phone ? 'err' : ''}`}
+          value={data.phone}
+          onChange={(e) => onPhone(e.target.value)}
+          placeholder="010-0000-0000"
+          inputMode="tel"
+        />
+        <ErrText msg={errors.phone} />
+      </div>
+      <div className="field">
+        <label className="field-label">생년월일<span className="req">*</span></label>
+        <input
+          className={`text-input ${errors.birthdate ? 'err' : ''}`}
+          value={data.birthdate}
+          onChange={(e) => onBirth(e.target.value)}
+          placeholder="YYYY-MM-DD"
+          inputMode="numeric"
+        />
+        <ErrText msg={errors.birthdate} />
+      </div>
+    </>
+  );
+}
+
+function Step2({ data, update, errors }) {
+  const opts = [
+    { v: 'new', t: '신규 참가', s: '로테이션 소개팅이 처음이에요' },
+    { v: 'repeat', t: '재참가', s: '이전에 참가한 적 있어요' },
+  ];
+  return (
+    <>
+      <StepHeader title="처음이세요?" helper="재참가자는 매칭 알고리즘에 반영해요." />
+      <div className="radio-cards">
+        {opts.map((o) => (
+          <label
+            key={o.v}
+            className={`radio-card ${data.participation === o.v ? 'selected' : ''}`}
+            onClick={() => update({ participation: o.v })}
+          >
+            <span className="ring" />
+            <div>
+              <div className="radio-main">{o.t}</div>
+              <div className="radio-sub">{o.s}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+      <ErrText msg={errors.participation} />
+    </>
+  );
+}
+
+const MBTI_LIST = [
+  { code: 'ISTJ', desc: '청렴결백한 논리주의자' },
+  { code: 'ISFJ', desc: '용감한 수호자' },
+  { code: 'INFJ', desc: '선의의 옹호자' },
+  { code: 'INTJ', desc: '용의주도한 전략가' },
+  { code: 'ISTP', desc: '만능 재주꾼' },
+  { code: 'ISFP', desc: '호기심 많은 예술가' },
+  { code: 'INFP', desc: '열정적인 중재자' },
+  { code: 'INTP', desc: '논리적인 사색가' },
+  { code: 'ESTP', desc: '모험을 즐기는 사업가' },
+  { code: 'ESFP', desc: '자유로운 영혼' },
+  { code: 'ENFP', desc: '재기발랄한 활동가' },
+  { code: 'ENTP', desc: '뜨거운 논쟁가' },
+  { code: 'ESTJ', desc: '엄격한 관리자' },
+  { code: 'ESFJ', desc: '사교적인 외교관' },
+  { code: 'ENFJ', desc: '정의로운 사회운동가' },
+  { code: 'ENTJ', desc: '대담한 통솔자' },
+];
+
+function mbtiColor(code) {
+  if (code[1] === 'N' && code[2] === 'T') return '#1F1A1A';
+  if (code[1] === 'N' && code[2] === 'F') return '#FF6B5B';
+  if (code[1] === 'S' && code[3] === 'J') return '#4FB286';
+  return '#E8A93C';
+}
+
+function Step3({ data, update, errors, shakeKey }) {
+  return (
+    <>
+      <StepHeader title="키와 몸무게를 알려주세요" helper="매칭 안내에만 활용되며 외부 공개되지 않아요." />
+
+      <div className="field-grid-2">
+        <WheelPicker
+          label="키 (cm)"
+          value={data.height}
+          min={140}
+          max={210}
+          defaultIdx={30}
+          onChange={(v) => update({ height: v })}
+          err={errors.height}
+          shakeKey={shakeKey}
+        />
+        <WheelPicker
+          label="몸무게 (kg)"
+          value={data.weight}
+          min={35}
+          max={130}
+          defaultIdx={25}
+          onChange={(v) => update({ weight: v })}
+          err={errors.weight}
+          shakeKey={shakeKey}
+        />
+      </div>
+
+      <div className="field" style={{ marginTop: '20px' }}>
+        <label className="field-label">MBTI<span className="req">*</span></label>
+        <div className="mbti-grid">
+          {MBTI_LIST.map((m) => (
+            <button
+              key={m.code}
+              type="button"
+              className={`mbti-card ${data.mbti === m.code ? 'selected' : ''}`}
+              style={data.mbti === m.code ? { borderColor: mbtiColor(m.code) } : {}}
+              onClick={() => update({ mbti: m.code })}
+            >
+              <div className="mbti-code" style={{ color: mbtiColor(m.code) }}>{m.code}</div>
+              <div className="mbti-desc">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+        <ErrText msg={errors.mbti} />
+      </div>
+    </>
+  );
+}
+
+function WheelPicker({ label, value, min, max, onChange, err, shakeKey }) {
+  const ref = useRef(null);
+  const userInteracted = useRef(false);
+  const [touched, setTouched] = useState(false);
+
+  const ITEM_H = 40;
+  const WINDOW_H = 160;
+  const SPACER = (WINDOW_H - ITEM_H) / 2;
+
+  const items = [];
+  for (let i = min; i <= max; i++) items.push(i);
+
+  const hasValue = value !== '' && value !== null && value !== undefined;
+  const numVal = typeof value === 'number' ? value : parseInt(value, 10);
+  const initialIdx = hasValue
+    ? Math.max(0, items.indexOf(numVal))
+    : Math.floor(items.length / 2);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.scrollTop = initialIdx * ITEM_H;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const markInteracted = () => {
+    userInteracted.current = true;
+    if (!touched) setTouched(true);
+  };
+
+  const handleScroll = () => {
+    if (!ref.current) return;
+    if (!userInteracted.current) return;
+    clearTimeout(handleScroll._t);
+    handleScroll._t = setTimeout(() => {
+      const idx = Math.round(ref.current.scrollTop / ITEM_H);
+      const v = items[Math.max(0, Math.min(items.length - 1, idx))];
+      if (v !== numVal) onChange(v);
+    }, 80);
+  };
+
+  const cur = hasValue ? numVal : (touched ? items[initialIdx] : null);
+  const showPlaceholder = !hasValue && !touched;
+
+  return (
+    <div
+      className={`wheel ${showPlaceholder ? 'wheel--unset' : ''} ${err ? 'err shake' : ''}`}
+      key={`${err ? 'e' : 'ok'}-${shakeKey || 0}`}
+    >
+      <div className="wheel-label">{label}</div>
+      <div className="wheel-window">
+        <div className="wheel-cursor" />
+        {showPlaceholder && <div className="wheel-placeholder">선택해주세요</div>}
+        <div
+          className="wheel-scroll"
+          ref={ref}
+          onScroll={handleScroll}
+          onTouchStart={markInteracted}
+          onMouseDown={markInteracted}
+          onWheel={markInteracted}
+          onKeyDown={markInteracted}
+          tabIndex={0}
+        >
+          <div style={{ height: SPACER }} />
+          {items.map((n) => (
+            <div
+              key={n}
+              className={`wheel-item ${n === cur ? 'active' : ''}`}
+              style={{ height: ITEM_H, lineHeight: ITEM_H + 'px' }}
+            >
+              {n}
+            </div>
+          ))}
+          <div style={{ height: SPACER }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step4({ data, update, errors }) {
+  const onFile = (key, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => update({ [key]: reader.result });
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <>
+      <StepHeader title="사진을 올려주세요" helper="얼굴이 잘 보이는 사진과 전신 사진을 각각 한 장씩." />
+
+      <div className="upload-grid">
+        <PhotoUpload
+          label="얼굴 사진"
+          hint="필수"
+          data={data.photoFace}
+          onSelect={(f) => onFile('photoFace', f)}
+          onClear={() => update({ photoFace: null })}
+          err={errors.photoFace}
+          iconKey="face"
+        />
+        <PhotoUpload
+          label="전신 사진"
+          hint="필수"
+          data={data.photoBody}
+          onSelect={(f) => onFile('photoBody', f)}
+          onClear={() => update({ photoBody: null })}
+          err={errors.photoBody}
+          iconKey="body"
+        />
+      </div>
+
+      <div className="disclaimer" style={{ marginTop: '18px' }}>
+        <strong>신분증 사진</strong>도 업로드해주세요. <strong>주민번호 뒷자리는 가려서</strong> 촬영해주세요. 본인 확인용으로만 사용되며 행사 후 즉시 폐기돼요.
+      </div>
+
+      <IdUpload
+        data={data.photoId}
+        onSelect={(f) => onFile('photoId', f)}
+        onClear={() => update({ photoId: null })}
+        err={errors.photoId}
+      />
+    </>
+  );
+}
+
+function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }) {
+  const inputRef = useRef(null);
+  if (data) {
+    return (
+      <div className="upload upload--filled">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={data} alt={label} className="upload-preview" />
+        <div className="upload-overlay">
+          <div className="upload-overlay-label">{label}</div>
+          <button type="button" className="upload-clear" onClick={onClear}>변경</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={`upload ${err ? 'err' : ''}`} onClick={() => inputRef.current?.click()}>
+      <div className="upload-icon">
+        {iconKey === 'face' && (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="4" /><path d="M5 7h2l1.5-2h7L17 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" /></svg>
+        )}
+        {iconKey === 'body' && (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="7" r="3" /><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /></svg>
+        )}
+      </div>
+      <div className="upload-label">{label}</div>
+      <div className="upload-hint">{hint}</div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => onSelect(e.target.files?.[0])}
+      />
+    </div>
+  );
+}
+
+function IdUpload({ data, onSelect, onClear, err }) {
+  const inputRef = useRef(null);
+  if (data) {
+    return (
+      <div className="id-upload id-upload--filled">
+        <div className="id-image-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data} alt="신분증" className="id-image" />
+          <div className="id-mask">
+            <div className="id-mask-label">자동 마스킹</div>
+            <div className="id-mask-line">●●●●●●</div>
+            <div className="id-mask-tag">뒷자리 보호</div>
+          </div>
+        </div>
+        <div className="id-meta">
+          <div>
+            <div className="id-status"><span className="dot"></span> 본인확인 대기</div>
+            <div className="id-status-sub">행사 후 즉시 폐기됩니다</div>
+          </div>
+          <button type="button" className="upload-clear" onClick={onClear}>변경</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`id-upload-empty ${err ? 'err' : ''}`}
+      onClick={() => inputRef.current?.click()}
+      style={{ margin: '13px 0px 0px' }}
+    >
+      <div className="upload-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+      </div>
+      <div>
+        <div className="upload-label">신분증 (뒷자리 가림)</div>
+        <div className="upload-hint">탭하여 업로드 · 자동 마스킹</div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => onSelect(e.target.files?.[0])}
+      />
+    </div>
+  );
+}
+
+const IDEAL_TAGS = [
+  '유머러스', '차분함', '지적인', '다정함', '성실함', '책임감',
+  '감각적', '활동적', '조용함', '긍정적', '솔직함', '예의바름',
+  '센스있는', '자상함', '리더십', '겸손함',
+];
+
+function Step5({ data, update, errors }) {
+  const [tags, setTags] = useState(() => data.idealTagsArr || []);
+
+  const toggleTag = (t) => {
+    let next;
+    if (tags.includes(t)) next = tags.filter((x) => x !== t);
+    else if (tags.length >= 5) return;
+    else next = [...tags, t];
+    setTags(next);
+    update({
+      idealTagsArr: next,
+      idealType: next.join(', ') + (data.idealTypeNote ? ' · ' + data.idealTypeNote : ''),
+    });
+  };
+
+  return (
+    <>
+      <StepHeader title="당신을 조금 더 알려주세요" helper="진심을 담아 적어주실수록 좋은 매칭이 가능해요." />
+
+      <div className="field">
+        <label className="field-label">직업<span className="req">*</span></label>
+        <input
+          className={`text-input ${errors.job ? 'err' : ''}`}
+          value={data.job}
+          onChange={(e) => update({ job: e.target.value })}
+          placeholder="예) 마케터 / 직장인 / 교사"
+        />
+        <ErrText msg={errors.job} />
+      </div>
+
+      <div className="field">
+        <label className="field-label field-label--row">
+          <span>이상형 <span className="opt">(최대 5개 선택)</span></span>
+          <span className="tag-count-inline">{tags.length} / 5</span>
+        </label>
+        <div className="tag-pool">
+          {IDEAL_TAGS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`tag-chip ${tags.includes(t) ? 'selected' : ''}`}
+              onClick={() => toggleTag(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <textarea
+          className="text-input"
+          rows="3"
+          style={{ marginTop: '10px' }}
+          value={data.idealTypeNote || ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            update({
+              idealTypeNote: v,
+              idealType: tags.join(', ') + (v ? ' · ' + v : ''),
+            });
+          }}
+          placeholder="더 적고 싶은 게 있다면 자유롭게..."
+        />
+      </div>
+
+      <div className="field">
+        <label className="field-label">본인의 장점 <span className="opt">(선택)</span></label>
+        <textarea
+          className="text-input"
+          rows="3"
+          value={data.strengths}
+          onChange={(e) => update({ strengths: e.target.value })}
+          placeholder="다른 사람이 알아봐줬으면 하는 매력"
+        />
+      </div>
+    </>
+  );
+}
+
+function ChipField({ label, options, value, onChange, required, err }) {
+  return (
+    <div className="field">
+      <label className="field-label">
+        {label}
+        {required && <span className="req">*</span>}
+      </label>
+      <div className="chip-group">
+        {options.map((o) => (
+          <button
+            key={o}
+            type="button"
+            className={`chip ${value === o ? 'selected' : ''}`}
+            onClick={() => onChange(o)}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+      <ErrText msg={err} />
+    </div>
+  );
+}
+
+function Step6({ data, update, errors }) {
+  return (
+    <>
+      <StepHeader title="몇 가지만 더요" helper="취향에 맞는 자리를 준비할게요." />
+
+      <ChipField
+        label="선호하는 이성의 나이대"
+        required
+        err={errors.preferAge}
+        options={['동갑', '연상', '연하', '상관없음']}
+        value={data.preferAge}
+        onChange={(v) => update({ preferAge: v })}
+      />
+
+      <ChipField
+        label="마실 음료"
+        required
+        err={errors.drink}
+        options={['아메리카노', '라떼', '아이스티', '탄산수']}
+        value={data.drink}
+        onChange={(v) => update({ drink: v })}
+      />
+
+      <ChipField
+        label="알게된 경로"
+        required
+        err={errors.channel}
+        options={['인스타그램', '친구 추천', '검색', '기타']}
+        value={data.channel}
+        onChange={(v) => update({ channel: v })}
+      />
+    </>
+  );
+}
+
+function Step7({ data, update }) {
+  return (
+    <>
+      <StepHeader title="마지막으로 두 가지만" helper="선택 항목이지만, 적어주시면 큰 도움이 돼요." />
+      <div className="field">
+        <label className="field-label">인스타 ID <span className="opt">(선택)</span></label>
+        <input
+          className="text-input"
+          value={data.insta}
+          onChange={(e) => update({ insta: e.target.value })}
+          placeholder="@아이디"
+        />
+      </div>
+      <div className="field">
+        <label className="field-label">동반 참석자 <span className="opt">(선택)</span></label>
+        <textarea
+          className="text-input"
+          rows="3"
+          value={data.companion}
+          onChange={(e) => update({ companion: e.target.value })}
+          placeholder="함께 신청하실 분이 있다면 이름과 연락처"
+        />
+      </div>
+
+      <div className="gentle-nudge">
+        <strong>거의 다 왔어요.</strong> 다음 단계에서 환불 규정만 확인하시면 끝이에요.
+      </div>
+    </>
+  );
+}
+
+function Step8({ data, update, errors }) {
+  return (
+    <>
+      <StepHeader title="환불 규정에 동의해주세요" helper="아래 내용을 꼭 확인해주세요." />
+      <div className="refund-card">
+        <div className="refund-row"><span className="refund-when">행사 7일 전까지</span><span className="refund-rate full">전액 환불</span></div>
+        <div className="refund-row"><span className="refund-when">행사 3-6일 전</span><span className="refund-rate half">50% 환불</span></div>
+        <div className="refund-row"><span className="refund-when">행사 2일 전 이후</span><span className="refund-rate none">환불 불가</span></div>
+        <div className="refund-row"><span className="refund-when">본인 확인 실패 시</span><span className="refund-rate none">참가 불가</span></div>
+      </div>
+
+      <label
+        className={`check-row ${data.refundAgreed ? 'checked' : ''} ${errors.refundAgreed ? 'err' : ''}`}
+        onClick={() => update({ refundAgreed: !data.refundAgreed })}
+      >
+        <span className="check-box">
+          {data.refundAgreed && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          )}
+        </span>
+        <div className="check-text">환불 규정을 확인했고, 동의합니다</div>
+      </label>
+      <ErrText msg={errors.refundAgreed} />
+    </>
+  );
+}
+
+export const STEP_COMPONENTS = {
+  1: Step1,
+  2: Step2,
+  3: Step3,
+  4: Step4,
+  5: Step5,
+  6: Step6,
+  7: Step7,
+  8: Step8,
+};

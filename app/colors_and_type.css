@@ -1,0 +1,169 @@
+/* 로테이션 소개팅 — Design Tokens
+ * Mobile-first, warm coral + cream
+ */
+
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css');
+
+:root {
+  /* ============ Colors ============ */
+  /* Brand */
+  --coral: #FF6B5B;
+  --coral-deep: #E84F3F;
+  --coral-soft: #FFD9D2;
+  --coral-tint: #FFEEEA;
+
+  /* Neutrals */
+  --cream: #FFF8F3;
+  --paper: #FFFFFF;
+  --ink: #1F1A1A;
+  --ink-muted: #7A6F6D;
+  --ink-subtle: #B5A9A5;
+  --line: #EDE4DF;
+  --line-strong: #DCD0CA;
+
+  /* Semantic accents */
+  --mint: #A8E0C5;
+  --mint-deep: #4FB286;
+  --warning: #E8A93C;
+  --error: #E84F3F;
+
+  /* Foreground / background semantic */
+  --bg: var(--cream);
+  --bg-letterbox: #FFFFFF;
+  --bg-card: var(--paper);
+  --bg-soft: var(--coral-tint);
+  --fg1: var(--ink);
+  --fg2: var(--ink-muted);
+  --fg3: var(--ink-subtle);
+  --accent: var(--coral);
+  --accent-deep: var(--coral-deep);
+
+  /* ============ Type ============ */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, 'Helvetica Neue', sans-serif;
+
+  /* Sizes (mobile-first) */
+  --fs-display: 40px;
+  --fs-h1: 30px;
+  --fs-h2: 22px;
+  --fs-h3: 18px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-tiny: 12px;
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-black: 800;
+
+  /* Line heights */
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-normal: 1.55;
+
+  /* Letter spacing */
+  --ls-display: -0.04em;
+  --ls-heading: -0.025em;
+  --ls-body: -0.01em;
+
+  /* ============ Spacing ============ */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* ============ Radius ============ */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* ============ Shadow ============ */
+  --shadow-sm: 0 2px 6px rgba(255, 107, 91, 0.08);
+  --shadow-md: 0 8px 24px rgba(255, 107, 91, 0.15);
+  --shadow-lg: 0 16px 40px rgba(255, 107, 91, 0.18);
+  --shadow-card: 0 4px 16px rgba(31, 26, 26, 0.06);
+
+  /* ============ Motion ============ */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 280ms;
+  --dur-slow: 480ms;
+
+  /* ============ Layout ============ */
+  --mobile-max: 420px;
+}
+
+/* ============ Semantic typography ============ */
+.t-display {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-black);
+  font-size: var(--fs-display);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-display);
+  color: var(--fg1);
+}
+.t-h1 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-heading);
+  color: var(--fg1);
+}
+.t-h2 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-h2);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-heading);
+  color: var(--fg1);
+}
+.t-h3 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-heading);
+  color: var(--fg1);
+}
+.t-body {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-body);
+  color: var(--fg1);
+}
+.t-small {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-small);
+  line-height: var(--lh-normal);
+  color: var(--fg2);
+}
+.t-tiny {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-tiny);
+  line-height: var(--lh-normal);
+  color: var(--fg2);
+  letter-spacing: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--fg1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
