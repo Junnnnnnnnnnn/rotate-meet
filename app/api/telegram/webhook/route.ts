@@ -360,6 +360,7 @@ async function actionMemoPrompt(
 
   await sendMessage(text, {
     parse_mode: 'HTML',
+    disable_notification: true,
     reply_markup: {
       force_reply: true,
       input_field_placeholder: '메모 내용...',
@@ -451,7 +452,7 @@ async function sendStatus(): Promise<void> {
     `💰 입금 완료: ${paid}건`,
   ];
   if (cancelled > 0) lines.push(`✗ 취소: ${cancelled}건`);
-  await sendMessage(lines.join('\n'), { parse_mode: 'HTML' });
+  await sendMessage(lines.join('\n'), { parse_mode: 'HTML', disable_notification: true });
 }
 
 type ListRow = {
@@ -556,6 +557,7 @@ async function sendList(): Promise<void> {
   }
   await sendMessage(text, {
     parse_mode: 'HTML',
+    disable_notification: true,
     reply_markup: buttons.length > 0 ? { inline_keyboard: buttons } : undefined,
   });
 }
@@ -568,7 +570,7 @@ async function handlePaidCommand(
   if (prefixes.length === 0) {
     await sendMessage(
       '사용법: <code>/paid abc12345 [def67890 ...]</code>\n각 신청서 8자리 ID를 입력해주세요.',
-      { parse_mode: 'HTML' },
+      { parse_mode: 'HTML', disable_notification: true },
     );
     return;
   }
@@ -663,7 +665,7 @@ async function handlePaidCommand(
   }
   lines.push('');
   lines.push(`총 ${okCount}건 처리 완료`);
-  await sendMessage(lines.join('\n'), { parse_mode: 'HTML' });
+  await sendMessage(lines.join('\n'), { parse_mode: 'HTML', disable_notification: true });
 }
 
 async function sendHelp(): Promise<void> {
@@ -683,5 +685,5 @@ async function sendHelp(): Promise<void> {
     '🗑 신분증 폐기 — 신분증 사진만 R2에서 삭제',
     '💬 메모 — 답장(reply)으로 메모 추가',
   ].join('\n');
-  await sendMessage(text, { parse_mode: 'HTML' });
+  await sendMessage(text, { parse_mode: 'HTML', disable_notification: true });
 }

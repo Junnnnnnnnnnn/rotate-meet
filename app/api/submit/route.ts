@@ -213,8 +213,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const facePhotoMsg = await sendPhoto(faceUrl);
-      const bodyPhotoMsg = await sendPhoto(bodyUrl);
+      const facePhotoMsg = await sendPhoto(faceUrl, { disable_notification: true });
+      const bodyPhotoMsg = await sendPhoto(bodyUrl, { disable_notification: true });
       const idPresignedUrl = await getPrivatePresignedUrl(
         idObjectKey,
         ID_PRESIGNED_TTL_SECONDS,

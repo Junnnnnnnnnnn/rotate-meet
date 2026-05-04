@@ -29,11 +29,13 @@ export type SendMessageOptions = {
   reply_markup?: InlineKeyboardMarkup | ForceReply;
   disable_web_page_preview?: boolean;
   reply_to_message_id?: number;
+  disable_notification?: boolean;
 };
 
 export type SendPhotoOptions = {
   caption?: string;
   parse_mode?: 'HTML' | 'MarkdownV2';
+  disable_notification?: boolean;
 };
 
 type TelegramResponse<T> = { ok: true; result: T } | { ok: false; description: string };
