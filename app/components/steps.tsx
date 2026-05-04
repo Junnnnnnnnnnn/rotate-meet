@@ -332,15 +332,59 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelP
 
 type PhotoKey = 'photoFace' | 'photoBody' | 'photoId';
 
+async function compressImageFile(file: File, maxDim = 1600, quality = 0.85): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('이미지를 읽을 수 없어요. JPG/PNG 파일로 다시 시도해주세요.'));
+      i.src = url;
+    });
+    const ratio = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * ratio));
+    const h = Math.max(1, Math.round(img.naturalHeight * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 컨텍스트를 만들 수 없어요');
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('이미지 변환 실패'))),
+        'image/jpeg',
+        quality,
+      );
+    });
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('이미지 인코딩 실패'));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function Step4({ data, update, errors }: StepProps) {
-  const onFile = (key: PhotoKey, file: File | undefined) => {
+  const [fileErr, setFileErr] = useState<Partial<Record<PhotoKey, string>>>({});
+  const [processing, setProcessing] = useState<Partial<Record<PhotoKey, boolean>>>({});
+
+  const onFile = async (key: PhotoKey, file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') update({ [key]: result } as Partial<FormData>);
-    };
-    reader.readAsDataURL(file);
+    setFileErr((p) => ({ ...p, [key]: undefined }));
+    setProcessing((p) => ({ ...p, [key]: true }));
+    try {
+      const dataUrl = await compressImageFile(file);
+      update({ [key]: dataUrl } as Partial<FormData>);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '이미지 처리 실패';
+      setFileErr((p) => ({ ...p, [key]: msg }));
+    } finally {
+      setProcessing((p) => ({ ...p, [key]: false }));
+    }
   };
 
   return (
@@ -353,8 +397,9 @@ function Step4({ data, update, errors }: StepProps) {
           hint="필수"
           data={data.photoFace}
           onSelect={(f) => onFile('photoFace', f)}
-          onClear={() => update({ photoFace: null })}
-          err={errors.photoFace}
+          onClear={() => { update({ photoFace: null }); setFileErr((p) => ({ ...p, photoFace: undefined })); }}
+          err={fileErr.photoFace ?? errors.photoFace}
+          processing={processing.photoFace}
           iconKey="face"
         />
         <PhotoUpload
@@ -362,21 +407,23 @@ function Step4({ data, update, errors }: StepProps) {
           hint="필수"
           data={data.photoBody}
           onSelect={(f) => onFile('photoBody', f)}
-          onClear={() => update({ photoBody: null })}
-          err={errors.photoBody}
+          onClear={() => { update({ photoBody: null }); setFileErr((p) => ({ ...p, photoBody: undefined })); }}
+          err={fileErr.photoBody ?? errors.photoBody}
+          processing={processing.photoBody}
           iconKey="body"
         />
       </div>
 
       <div className="disclaimer" style={{ marginTop: '18px' }}>
-        <strong>신분증 사진</strong>도 업로드해주세요. <strong>주민번호 뒷자리는 가려서</strong> 촬영해주세요. 본인 확인용으로만 사용되며 행사 후 즉시 폐기돼요.
+        <strong>신분증 사진</strong>도 업로드해주세요. <strong>주민번호 뒷자리는 가려서</strong> 촬영해주세요. 본인 확인용으로만 사용되며 행사 후 운영팀이 직접 폐기합니다.
       </div>
 
       <IdUpload
         data={data.photoId}
         onSelect={(f) => onFile('photoId', f)}
-        onClear={() => update({ photoId: null })}
-        err={errors.photoId}
+        onClear={() => { update({ photoId: null }); setFileErr((p) => ({ ...p, photoId: undefined })); }}
+        err={fileErr.photoId ?? errors.photoId}
+        processing={processing.photoId}
       />
     </>
   );
@@ -389,10 +436,11 @@ type PhotoUploadProps = {
   onSelect: (file: File | undefined) => void;
   onClear: () => void;
   err?: string;
+  processing?: boolean;
   iconKey: 'face' | 'body';
 };
 
-function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }: PhotoUploadProps) {
+function PhotoUpload({ label, hint, data, onSelect, onClear, err, processing, iconKey }: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   if (data) {
     return (
@@ -406,26 +454,37 @@ function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }: Pho
       </div>
     );
   }
-  return (
-    <div className={`upload ${err ? 'err' : ''}`} onClick={() => inputRef.current?.click()}>
-      <div className="upload-icon">
-        {iconKey === 'face' && (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="4" /><path d="M5 7h2l1.5-2h7L17 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" /></svg>
-        )}
-        {iconKey === 'body' && (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="7" r="3" /><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /></svg>
-        )}
+  if (processing) {
+    return (
+      <div className="upload upload--processing">
+        <div className="upload-spinner" />
+        <div className="upload-label">처리 중...</div>
       </div>
-      <div className="upload-label">{label}</div>
-      <div className="upload-hint">{hint}</div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => onSelect(e.target.files?.[0])}
-      />
-    </div>
+    );
+  }
+  return (
+    <>
+      <div className={`upload ${err ? 'err' : ''}`} onClick={() => inputRef.current?.click()}>
+        <div className="upload-icon">
+          {iconKey === 'face' && (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="4" /><path d="M5 7h2l1.5-2h7L17 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" /></svg>
+          )}
+          {iconKey === 'body' && (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="7" r="3" /><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /></svg>
+          )}
+        </div>
+        <div className="upload-label">{label}</div>
+        <div className="upload-hint">{hint}</div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => onSelect(e.target.files?.[0])}
+        />
+      </div>
+      <ErrText msg={err} />
+    </>
   );
 }
 
@@ -434,9 +493,10 @@ type IdUploadProps = {
   onSelect: (file: File | undefined) => void;
   onClear: () => void;
   err?: string;
+  processing?: boolean;
 };
 
-function IdUpload({ data, onSelect, onClear, err }: IdUploadProps) {
+function IdUpload({ data, onSelect, onClear, err, processing }: IdUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   if (data) {
     return (
@@ -453,34 +513,47 @@ function IdUpload({ data, onSelect, onClear, err }: IdUploadProps) {
         <div className="id-meta">
           <div>
             <div className="id-status"><span className="dot"></span> 본인확인 대기</div>
-            <div className="id-status-sub">행사 후 즉시 폐기됩니다</div>
+            <div className="id-status-sub">행사 후 운영팀이 폐기합니다</div>
           </div>
           <button type="button" className="upload-clear" onClick={onClear}>변경</button>
         </div>
       </div>
     );
   }
+  if (processing) {
+    return (
+      <div className="id-upload-empty id-upload-empty--processing" style={{ margin: '13px 0px 0px' }}>
+        <div className="upload-spinner" />
+        <div>
+          <div className="upload-label">처리 중...</div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div
-      className={`id-upload-empty ${err ? 'err' : ''}`}
-      onClick={() => inputRef.current?.click()}
-      style={{ margin: '13px 0px 0px' }}
-    >
-      <div className="upload-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+    <>
+      <div
+        className={`id-upload-empty ${err ? 'err' : ''}`}
+        onClick={() => inputRef.current?.click()}
+        style={{ margin: '13px 0px 0px' }}
+      >
+        <div className="upload-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+        </div>
+        <div>
+          <div className="upload-label">신분증 (뒷자리 가림)</div>
+          <div className="upload-hint">탭하여 업로드 · 자동 마스킹</div>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => onSelect(e.target.files?.[0])}
+        />
       </div>
-      <div>
-        <div className="upload-label">신분증 (뒷자리 가림)</div>
-        <div className="upload-hint">탭하여 업로드 · 자동 마스킹</div>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => onSelect(e.target.files?.[0])}
-      />
-    </div>
+      <ErrText msg={err} />
+    </>
   );
 }
 

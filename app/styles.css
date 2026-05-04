@@ -1121,3 +1121,26 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
 }
 .modal-button:hover { opacity: 0.92; }
 .modal-button:active { transform: scale(0.98); }
+
+/* ====== Photo Upload Processing State ====== */
+.upload--processing,
+.id-upload-empty--processing {
+  pointer-events: none;
+  opacity: 0.7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.upload-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(31, 26, 26, 0.12);
+  border-top-color: var(--coral);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

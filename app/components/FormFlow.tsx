@@ -36,36 +36,6 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return res.blob();
 }
 
-async function compressImage(blob: Blob, maxDim = 1600, quality = 0.85): Promise<Blob> {
-  const url = URL.createObjectURL(blob);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error('이미지를 읽을 수 없어요 (HEIC는 데스크탑에서 지원 안 됨)'));
-      i.src = url;
-    });
-    const ratio = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * ratio));
-    const h = Math.max(1, Math.round(img.naturalHeight * ratio));
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 컨텍스트를 만들 수 없어요');
-    ctx.drawImage(img, 0, 0, w, h);
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('이미지 압축 실패'))),
-        'image/jpeg',
-        quality,
-      );
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
 class SubmitError extends Error {
   code?: string;
   constructor(msg: string, code?: string) {
@@ -102,9 +72,8 @@ async function submitToServer(data: FormData, heroVariant: HeroVariant): Promise
   ];
   for (const [key, dataUrl] of photos) {
     if (!dataUrl) throw new SubmitError(`${key} 사진이 누락되었어요`);
-    const original = await dataUrlToBlob(dataUrl);
-    const compressed = await compressImage(original);
-    fd.append(key, compressed, `${key}.jpg`);
+    const blob = await dataUrlToBlob(dataUrl);
+    fd.append(key, blob, `${key}.jpg`);
   }
 
   const res = await fetch('/api/submit', { method: 'POST', body: fd });
