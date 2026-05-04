@@ -8,14 +8,15 @@
 
 ## 🛠 기술 스택
 
-| 항목 | 버전 |
-|---|---|
-| Node.js | 20 이상 권장 |
-| Next.js | ^16.2.4 (App Router + Turbopack) |
-| React | ^19.2.5 |
-| TypeScript | ^6.0.3 (strict) |
+| 항목       | 버전                             |
+| ---------- | -------------------------------- |
+| Node.js    | 20 이상 권장                     |
+| Next.js    | ^16.2.4 (App Router + Turbopack) |
+| React      | ^19.2.5                          |
+| TypeScript | ^6.0.3 (strict)                  |
 
 **백엔드 인프라 (모두 무료 티어):**
+
 - **Supabase** — PostgreSQL DB
 - **Cloudflare R2** — 사진 객체 스토리지 (S3 호환)
 - **Telegram Bot API** — 운영 알림 + 액션 처리
@@ -30,12 +31,12 @@ cp .env.example .env.local   # 값 채워 넣기
 npm run dev                  # http://localhost:3000
 ```
 
-| 명령어 | 설명 |
-|---|---|
-| `npm run dev` | 개발 서버 실행 |
-| `npm run build` | 프로덕션 빌드 |
+| 명령어          | 설명           |
+| --------------- | -------------- |
+| `npm run dev`   | 개발 서버 실행 |
+| `npm run build` | 프로덕션 빌드  |
 | `npm run start` | 빌드 결과 실행 |
-| `npm run lint` | 린트 검사 |
+| `npm run lint`  | 린트 검사      |
 
 ---
 
@@ -85,32 +86,32 @@ POST /api/submit (multipart/form-data)
 
 상태 진화: `pending` → `normal` (본인확인) → `paid` (입금 완료)
 
-| 버튼 (메시지) | 조건 | 동작 |
-|---|---|---|
-| **[✓ 확인]** | status=pending일 때만 | `status='normal'`, verified_* 채움 → 입금 대기 상태로 |
-| **[💰 입금완료]** | status=normal일 때만 | `status='paid'`, paid_* 채움 → 참가 확정 |
-| **[✗ 거절]** | 항상 | R2 사진 3장 + DB row 삭제, 사진 메시지 삭제, 메인 "거절됨" |
-| **[🗑 신분증 폐기]** | photo_id_key 있을 때만 | R2 id 객체 삭제, photo_id_*에 폐기 정보 |
-| **[💬 메모]** | 항상 | ForceReply → 답장으로 메모 → admin_memos에 append |
+| 버튼 (메시지)        | 조건                   | 동작                                                       |
+| -------------------- | ---------------------- | ---------------------------------------------------------- |
+| **[✓ 확인]**         | status=pending일 때만  | `status='normal'`, verified\_\* 채움 → 입금 대기 상태로    |
+| **[💰 입금완료]**    | status=normal일 때만   | `status='paid'`, paid\_\* 채움 → 참가 확정                 |
+| **[✗ 거절]**         | 항상                   | R2 사진 3장 + DB row 삭제, 사진 메시지 삭제, 메인 "거절됨" |
+| **[🗑 신분증 폐기]** | photo_id_key 있을 때만 | R2 id 객체 삭제, photo*id*\*에 폐기 정보                   |
+| **[💬 메모]**        | 항상                   | ForceReply → 답장으로 메모 → admin_memos에 append          |
 
 ### 그룹 채팅 명령어
 
-| 명령 | 응답 |
-|---|---|
-| `/status` 또는 `현황` | 총 N건 / 🟡 본인확인 대기 / ✓ 입금 대기 / 💰 입금 완료 카운트 |
-| `/list` 또는 `목록` | 상태별 그룹핑 (대기/입금대기엔 전화번호+8자리ID 표시) |
-| `/paid abc12345 [def67890 ...]` | 8자리 ID로 배치 입금 처리 (status normal → paid) |
-| `/help` 또는 `도움말` | 사용법 안내 |
+| 명령                            | 응답                                                          |
+| ------------------------------- | ------------------------------------------------------------- |
+| `/status` 또는 `현황`           | 총 N건 / 🟡 본인확인 대기 / ✓ 입금 대기 / 💰 입금 완료 카운트 |
+| `/list` 또는 `목록`             | 상태별 그룹핑 (대기/입금대기엔 전화번호+8자리ID 표시)         |
+| `/paid abc12345 [def67890 ...]` | 8자리 ID로 배치 입금 처리 (status normal → paid)              |
+| `/help` 또는 `도움말`           | 사용법 안내                                                   |
 
 ---
 
 ## 🔐 사진 처리 정책
 
-| 사진 종류 | 버킷 | 접근 방식 | 폐기 |
-|---|---|---|---|
-| **얼굴 사진** | `rotate-meet-public` (`face/{uuid}.jpg`) | 공개 R2.dev URL | 보존 |
-| **전신 사진** | `rotate-meet-public` (`body/{uuid}.jpg`) | 공개 R2.dev URL | 보존 |
-| **신분증 사진** | `rotate-meet-private` (`id/{uuid}.jpg`) | **Presigned URL (4시간 유효)** 링크만 Telegram에 전송 | 운영자가 [🗑 신분증 폐기] 버튼으로 **수동 삭제** |
+| 사진 종류       | 버킷                                     | 접근 방식                                             | 폐기                                             |
+| --------------- | ---------------------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| **얼굴 사진**   | `rotate-meet-public` (`face/{uuid}.jpg`) | 공개 R2.dev URL                                       | 보존                                             |
+| **전신 사진**   | `rotate-meet-public` (`body/{uuid}.jpg`) | 공개 R2.dev URL                                       | 보존                                             |
+| **신분증 사진** | `rotate-meet-private` (`id/{uuid}.jpg`)  | **Presigned URL (4시간 유효)** 링크만 Telegram에 전송 | 운영자가 [🗑 신분증 폐기] 버튼으로 **수동 삭제** |
 
 > 신분증은 Telegram 채팅에 이미지가 직접 전송되지 않습니다. 운영자는 메시지 안의 "🪪 신분증 보기" 링크를 탭해 브라우저로 확인하고, 본인확인 끝나면 [🗑 신분증 폐기] 버튼으로 R2에서 삭제합니다.
 
@@ -120,80 +121,80 @@ POST /api/submit (multipart/form-data)
 
 ### ENUM 타입
 
-| 타입 | 값 | 의미 |
-|---|---|---|
-| `participation_t` | `new`, `repeat` | 신규 / 재참가 |
-| `prefer_age_t` | `동갑`, `연상`, `연하`, `상관없음` | 선호 이성 나이대 |
-| `drink_t` | `아메리카노`, `라떼`, `아이스티`, `탄산수` | 행사장 음료 |
-| `channel_t` | `인스타그램`, `친구 추천`, `검색`, `기타` | 알게 된 경로 |
-| `signup_status_t` | `pending`, `normal`, `paid`, `cancelled` | 신청 처리 상태 |
+| 타입              | 값                                         | 의미             |
+| ----------------- | ------------------------------------------ | ---------------- |
+| `participation_t` | `new`, `repeat`                            | 신규 / 재참가    |
+| `prefer_age_t`    | `동갑`, `연상`, `연하`, `상관없음`         | 선호 이성 나이대 |
+| `drink_t`         | `아메리카노`, `라떼`, `아이스티`, `탄산수` | 행사장 음료      |
+| `channel_t`       | `인스타그램`, `친구 추천`, `검색`, `기타`  | 알게 된 경로     |
+| `signup_status_t` | `pending`, `normal`, `paid`, `cancelled`   | 신청 처리 상태   |
 
 ### `signups` 테이블 컬럼
 
-| 컬럼 | 타입 | 의미 |
-|---|---|---|
-| **시스템 메타** | | |
-| `id` | uuid PK | 신청 고유 ID. R2 사진 키 이름에도 사용 |
-| `created_at` | timestamptz | 신청 제출 시각 |
-| `updated_at` | timestamptz | 마지막 수정 시각 (트리거 자동 갱신) |
-| **Step 1 — 본인 확인** | | |
-| `name` | text | 실명 (1~50자) |
-| `phone` | text | 연락처 (`010-0000-0000` 형식 강제) |
-| `birthdate` | date | 생년월일 |
-| **Step 2 — 참가 이력** | | |
-| `participation` | participation_t | 신규/재참가 |
-| **Step 3 — 신체/성향** | | |
-| `height_cm` | smallint | 키 (140~210) |
-| `weight_kg` | smallint | 몸무게 (35~130) |
-| `mbti` | text | MBTI 4글자 |
-| **Step 4 — 사진** | | |
-| `photo_face_url` | text | 얼굴 사진 R2 공개 URL |
-| `photo_body_url` | text | 전신 사진 R2 공개 URL |
-| `photo_id_key` | text | 신분증 R2 비공개 키 (폐기 시 null) |
-| **Step 5 — 자기소개** | | |
-| `job` | text | 직업 |
-| `ideal_tags` | text[] | 이상형 태그 (최대 5개) |
-| `ideal_type_note` | text | 이상형 자유 서술 |
-| `strengths` | text | 본인 장점 (선택) |
-| **Step 6 — 취향** | | |
-| `prefer_age` | prefer_age_t | 선호 이성 나이대 |
-| `drink` | drink_t | 음료 |
-| `channel` | channel_t | 알게 된 경로 |
-| **Step 7 — 선택 항목** | | |
-| `insta` | text | 인스타 ID |
-| `companion` | text | 동반 참석자 정보 |
-| **Step 8 — 동의** | | |
-| `refund_agreed` | boolean | 환불 규정 동의 (true 강제) |
-| **운영 — 본인확인** | | |
-| `status` | signup_status_t | 처리 상태 (기본 `pending`) |
-| `verified_at` | timestamptz | [✓ 확인] 누른 시각 |
-| `verified_by_id` | bigint | 확인 처리한 운영자 Telegram user_id |
-| `verified_by_name` | text | 운영자 표시 이름 |
-| **운영 — 입금 확인** | | |
-| `paid_at` | timestamptz | [💰 입금완료] 누른 시각 |
-| `paid_by_id` | bigint | 입금 처리한 운영자 Telegram user_id |
-| `paid_by_name` | text | 운영자 표시 이름 |
-| **운영 — 신분증 폐기** | | |
-| `photo_id_deleted_at` | timestamptz | 폐기 시각 |
-| `photo_id_deleted_by_id` | bigint | 폐기 처리한 운영자 Telegram user_id |
-| `photo_id_deleted_by` | text | 운영자 표시 이름 |
-| **운영 — 메모** | | |
-| `admin_memos` | jsonb | 메모 배열 (append-only). 각 항목 `{text, author_id, author_name, created_at}` |
-| **Telegram 연동** | | |
-| `telegram_chat_id` | bigint | 알림 보낸 그룹 채팅 ID |
-| `telegram_notify_msg_id` | bigint | 인라인 버튼 달린 메인 메시지 ID |
-| `telegram_photo_msg_ids` | bigint[] | face/body 사진 메시지 ID 배열 (REJECT 시 일괄 삭제용) |
-| **부가 정보** | | |
-| `metadata` | jsonb | 디버깅·분석용 (`hero_variant`, `user_agent`, `referrer`) |
+| 컬럼                     | 타입            | 의미                                                                          |
+| ------------------------ | --------------- | ----------------------------------------------------------------------------- |
+| **시스템 메타**          |                 |                                                                               |
+| `id`                     | uuid PK         | 신청 고유 ID. R2 사진 키 이름에도 사용                                        |
+| `created_at`             | timestamptz     | 신청 제출 시각                                                                |
+| `updated_at`             | timestamptz     | 마지막 수정 시각 (트리거 자동 갱신)                                           |
+| **Step 1 — 본인 확인**   |                 |                                                                               |
+| `name`                   | text            | 실명 (1~50자)                                                                 |
+| `phone`                  | text            | 연락처 (`010-0000-0000` 형식 강제)                                            |
+| `birthdate`              | date            | 생년월일                                                                      |
+| **Step 2 — 참가 이력**   |                 |                                                                               |
+| `participation`          | participation_t | 신규/재참가                                                                   |
+| **Step 3 — 신체/성향**   |                 |                                                                               |
+| `height_cm`              | smallint        | 키 (140~210)                                                                  |
+| `weight_kg`              | smallint        | 몸무게 (35~130)                                                               |
+| `mbti`                   | text            | MBTI 4글자                                                                    |
+| **Step 4 — 사진**        |                 |                                                                               |
+| `photo_face_url`         | text            | 얼굴 사진 R2 공개 URL                                                         |
+| `photo_body_url`         | text            | 전신 사진 R2 공개 URL                                                         |
+| `photo_id_key`           | text            | 신분증 R2 비공개 키 (폐기 시 null)                                            |
+| **Step 5 — 자기소개**    |                 |                                                                               |
+| `job`                    | text            | 직업                                                                          |
+| `ideal_tags`             | text[]          | 이상형 태그 (최대 5개)                                                        |
+| `ideal_type_note`        | text            | 이상형 자유 서술                                                              |
+| `strengths`              | text            | 본인 장점 (선택)                                                              |
+| **Step 6 — 취향**        |                 |                                                                               |
+| `prefer_age`             | prefer_age_t    | 선호 이성 나이대                                                              |
+| `drink`                  | drink_t         | 음료                                                                          |
+| `channel`                | channel_t       | 알게 된 경로                                                                  |
+| **Step 7 — 선택 항목**   |                 |                                                                               |
+| `insta`                  | text            | 인스타 ID                                                                     |
+| `companion`              | text            | 동반 참석자 정보                                                              |
+| **Step 8 — 동의**        |                 |                                                                               |
+| `refund_agreed`          | boolean         | 환불 규정 동의 (true 강제)                                                    |
+| **운영 — 본인확인**      |                 |                                                                               |
+| `status`                 | signup_status_t | 처리 상태 (기본 `pending`)                                                    |
+| `verified_at`            | timestamptz     | [✓ 확인] 누른 시각                                                            |
+| `verified_by_id`         | bigint          | 확인 처리한 운영자 Telegram user_id                                           |
+| `verified_by_name`       | text            | 운영자 표시 이름                                                              |
+| **운영 — 입금 확인**     |                 |                                                                               |
+| `paid_at`                | timestamptz     | [💰 입금완료] 누른 시각                                                       |
+| `paid_by_id`             | bigint          | 입금 처리한 운영자 Telegram user_id                                           |
+| `paid_by_name`           | text            | 운영자 표시 이름                                                              |
+| **운영 — 신분증 폐기**   |                 |                                                                               |
+| `photo_id_deleted_at`    | timestamptz     | 폐기 시각                                                                     |
+| `photo_id_deleted_by_id` | bigint          | 폐기 처리한 운영자 Telegram user_id                                           |
+| `photo_id_deleted_by`    | text            | 운영자 표시 이름                                                              |
+| **운영 — 메모**          |                 |                                                                               |
+| `admin_memos`            | jsonb           | 메모 배열 (append-only). 각 항목 `{text, author_id, author_name, created_at}` |
+| **Telegram 연동**        |                 |                                                                               |
+| `telegram_chat_id`       | bigint          | 알림 보낸 그룹 채팅 ID                                                        |
+| `telegram_notify_msg_id` | bigint          | 인라인 버튼 달린 메인 메시지 ID                                               |
+| `telegram_photo_msg_ids` | bigint[]        | face/body 사진 메시지 ID 배열 (REJECT 시 일괄 삭제용)                         |
+| **부가 정보**            |                 |                                                                               |
+| `metadata`               | jsonb           | 디버깅·분석용 (`hero_variant`, `user_agent`, `referrer`)                      |
 
 ### 인덱스
 
-| 인덱스 | 의미 |
-|---|---|
-| `signups_created_at_idx` | 최신순 정렬 가속 |
-| `signups_status_idx` | status 필터 가속 |
-| `signups_phone_active_uidx` | 활성 신청(`status <> 'cancelled'`) 한정 전화번호 unique → 중복 신청 차단 |
-| `signups_photo_id_pending_idx` | 신분증 미폐기 건 부분 인덱스 |
+| 인덱스                         | 의미                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `signups_created_at_idx`       | 최신순 정렬 가속                                                         |
+| `signups_status_idx`           | status 필터 가속                                                         |
+| `signups_phone_active_uidx`    | 활성 신청(`status <> 'cancelled'`) 한정 전화번호 unique → 중복 신청 차단 |
+| `signups_photo_id_pending_idx` | 신분증 미폐기 건 부분 인덱스                                             |
 
 ### 보안 (RLS)
 
@@ -225,11 +226,11 @@ POST /api/submit (multipart/form-data)
 
 프로젝트 진입 후 처음 묻는 옵션:
 
-| 옵션 | 설정 |
-|---|---|
-| Enable Data API | ✅ ON |
+| 옵션                                          | 설정          |
+| --------------------------------------------- | ------------- |
+| Enable Data API                               | ✅ ON         |
 | Automatically expose new tables and functions | ❌ OFF (안전) |
-| Enable automatic RLS | ✅ ON |
+| Enable automatic RLS                          | ✅ ON         |
 
 ### 1-3. 스키마 적용
 
@@ -311,6 +312,7 @@ grant usage on schema public to service_role;
 ### 1-4. 키 복사
 
 좌측 **Project Settings** (⚙️) → **API Keys** 탭:
+
 - **Project URL** (`https://xxxxx.supabase.co`) → `NEXT_PUBLIC_SUPABASE_URL`
 - **Secret keys** → `service_role` 키 (또는 기본 secret) → `SUPABASE_SERVICE_ROLE_KEY`
 
@@ -326,10 +328,10 @@ grant usage on schema public to service_role;
 
 ### 2-2. 버킷 2개 생성
 
-| 버킷 이름 | 용도 |
-|---|---|
-| `rotate-meet-public` | face/body 사진 (공개) |
-| `rotate-meet-private` | 신분증 사진 (비공개) |
+| 버킷 이름             | 용도                  |
+| --------------------- | --------------------- |
+| `rotate-meet-public`  | face/body 사진 (공개) |
+| `rotate-meet-private` | 신분증 사진 (비공개)  |
 
 각각 **Create bucket** → Location: `Asia-Pacific (APAC)` → 생성.
 
@@ -346,7 +348,10 @@ grant usage on schema public to service_role;
 ```json
 [
   {
-    "AllowedOrigins": ["http://localhost:3000", "https://rotate-meet.vercel.app"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://rotate-meet.vercel.app"
+    ],
     "AllowedMethods": ["GET"]
   }
 ]
@@ -357,6 +362,7 @@ grant usage on schema public to service_role;
 ### 2-4. API 토큰 발급
 
 R2 메인 → **Manage R2 API Tokens** → **Create API token**:
+
 - Token name: `rotate-meet-app`
 - Permissions: **Object Read & Write**
 - Specify bucket(s): **Apply to specific buckets only** → `rotate-meet-public` + `rotate-meet-private` 둘 다
@@ -364,6 +370,7 @@ R2 메인 → **Manage R2 API Tokens** → **Create API token**:
 - Client IP filtering: 비워둠
 
 발급 즉시 복사:
+
 - **Access Key ID** → `CLOUDFLARE_R2_ACCESS_KEY_ID`
 - **Secret Access Key** → `CLOUDFLARE_R2_SECRET_ACCESS_KEY` (한 번만 표시)
 - Endpoint URL의 서브도메인 32자 → `CLOUDFLARE_ACCOUNT_ID`
@@ -393,6 +400,7 @@ R2 메인 → **Manage R2 API Tokens** → **Create API token**:
 ```
 /setprivacy
 ```
+
 → 봇 선택 → **Disable** (그룹 메시지 받기 위해 필수)
 
 ### 3-3. 운영팀 그룹 생성
@@ -406,16 +414,19 @@ R2 메인 → **Manage R2 API Tokens** → **Create API token**:
 ### 3-4. Chat ID 확인
 
 운영팀 그룹에 봇한테 메시지 보내기:
+
 ```
 @rotate_meet_bot 안녕
 ```
 
 브라우저에서 (`{BOT_TOKEN}`만 본인 것으로):
+
 ```
 https://api.telegram.org/bot{BOT_TOKEN}/getUpdates
 ```
 
 JSON 응답에서:
+
 ```json
 "chat": { "id": -1234567890, ... }   ← 음수 부호 포함, → TELEGRAM_CHAT_ID
 ```
@@ -423,6 +434,7 @@ JSON 응답에서:
 ### 3-5. Webhook Secret 생성
 
 PowerShell:
+
 ```powershell
 [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
 ```
@@ -483,25 +495,27 @@ npx vercel --prod
 ### 5-4. Telegram에 webhook 등록
 
 브라우저 주소창에:
+
 ```
 https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url=https://rotate-meet.vercel.app/api/telegram/webhook&secret_token={WEBHOOK_SECRET}
 ```
 
 응답:
+
 ```json
-{"ok":true,"result":true,"description":"Webhook was set"}
+{ "ok": true, "result": true, "description": "Webhook was set" }
 ```
 
 ### 5-5. 검증
 
-| 확인 | 방법 |
-|---|---|
-| 폼 제출 → DB | 폼 제출 → Supabase Studio → `signups` row 확인 |
-| 폼 제출 → R2 | R2 대시보드 → 버킷에 `face/{uuid}.jpg` 등 |
-| 폼 제출 → Telegram | 운영팀 그룹에 사진 2장 + 정보 메시지 도착 |
-| [✓ 확인] 버튼 | 메시지에 "✓ 확인됨 by {이름}" 표시 + 확인 버튼 사라짐 |
-| `/status` | 그룹에 입력 → 통계 응답 |
-| [💬 메모] | 탭 → 프롬프트 → 답장으로 메모 → 메인 메시지에 메모 누적 |
+| 확인               | 방법                                                    |
+| ------------------ | ------------------------------------------------------- |
+| 폼 제출 → DB       | 폼 제출 → Supabase Studio → `signups` row 확인          |
+| 폼 제출 → R2       | R2 대시보드 → 버킷에 `face/{uuid}.jpg` 등               |
+| 폼 제출 → Telegram | 운영팀 그룹에 사진 2장 + 정보 메시지 도착               |
+| [✓ 확인] 버튼      | 메시지에 "✓ 확인됨 by {이름}" 표시 + 확인 버튼 사라짐   |
+| `/status`          | 그룹에 입력 → 통계 응답                                 |
+| [💬 메모]          | 탭 → 프롬프트 → 답장으로 메모 → 메인 메시지에 메모 누적 |
 
 ---
 
@@ -523,13 +537,13 @@ R2 사진은 별도 — 대시보드에서 face/body/id 폴더 정리.
 
 ## 자주 막히는 부분
 
-| 증상 | 원인 / 해결 |
-|---|---|
-| `permission denied for table signups` | service_role에 GRANT 없음 → `grant all on public.signups to service_role;` |
-| `duplicate key value violates unique constraint signups_phone_active_uidx` | 같은 번호 신청 시도 → 정상 동작 (UI에서 모달로 표시됨) |
-| Telegram에 메시지 안 옴 | (1) `.env`의 `TELEGRAM_CHAT_ID` 음수 부호 확인 (2) 봇이 그룹 멤버인지 확인 (3) 봇 토큰 오타 |
-| Webhook 버튼 눌러도 반응 없음 | (1) `setWebhook` 호출했는지 확인 (2) `getWebhookInfo`로 `last_error_message` 확인 (3) Vercel 환경변수 등록 + 재배포 했는지 |
-| `/setprivacy` Disabled인데 `getUpdates` 응답 비어있음 | 봇 추가 후 새 메시지 보내야 함 (이전 메시지는 못 봄) |
+| 증상                                                                       | 원인 / 해결                                                                                                                |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `permission denied for table signups`                                      | service_role에 GRANT 없음 → `grant all on public.signups to service_role;`                                                 |
+| `duplicate key value violates unique constraint signups_phone_active_uidx` | 같은 번호 신청 시도 → 정상 동작 (UI에서 모달로 표시됨)                                                                     |
+| Telegram에 메시지 안 옴                                                    | (1) `.env`의 `TELEGRAM_CHAT_ID` 음수 부호 확인 (2) 봇이 그룹 멤버인지 확인 (3) 봇 토큰 오타                                |
+| Webhook 버튼 눌러도 반응 없음                                              | (1) `setWebhook` 호출했는지 확인 (2) `getWebhookInfo`로 `last_error_message` 확인 (3) Vercel 환경변수 등록 + 재배포 했는지 |
+| `/setprivacy` Disabled인데 `getUpdates` 응답 비어있음                      | 봇 추가 후 새 메시지 보내야 함 (이전 메시지는 못 봄)                                                                       |
 
 ## Webhook 상태 확인
 
@@ -565,4 +579,4 @@ https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo
 - [x] **6. `/api/telegram/webhook` 라우트** — verify/reject/delete_id/memo 콜백 + /status, /list, /help 명령어 + ForceReply 메모 플로우
 - [x] **7. `FormFlow.tsx` 제출 로직 + UX** — multipart 변환, 로딩 오버레이, 흔들림 버그 수정, 전화번호 중복 모달
 - [x] **8. WheelPicker 기본값 자동 적용** — 탭만으로도 175cm/83kg 커밋
-- [ ] **9. Vercel 배포 + setWebhook 등록** — 환경변수 등록 + production 재배포 + Telegram 웹훅 URL 등록 (진행 중)
+- [x] **9. Vercel 배포 + setWebhook 등록** — 환경변수 등록 + production 재배포 + Telegram 웹훅 URL 등록 (진행 중)
