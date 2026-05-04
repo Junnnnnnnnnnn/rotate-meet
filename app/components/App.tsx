@@ -31,7 +31,7 @@ export default function App() {
           <Landing onApply={() => go('form')} heroVariant={heroVariant} />
         )}
         {route === 'form' && (
-          <FormFlow onComplete={() => go('success')} onExit={back} />
+          <FormFlow onComplete={() => go('success')} onExit={back} heroVariant={heroVariant} />
         )}
         {route === 'success' && <Success onHome={back} />}
       </div>

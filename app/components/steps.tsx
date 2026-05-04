@@ -67,9 +67,9 @@ type ShakeWrapProps = {
 
 export function ShakeWrap({ shakeKey, children }: ShakeWrapProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const prev = useRef(0);
+  const prev = useRef(shakeKey);
   useEffect(() => {
-    if (shakeKey > 0 && shakeKey !== prev.current && ref.current) {
+    if (shakeKey !== prev.current && ref.current) {
       const el = ref.current;
       el.classList.remove('shaking');
       void el.offsetWidth;
@@ -273,8 +273,10 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelP
   }, []);
 
   const markInteracted = () => {
+    if (userInteracted.current) return;
     userInteracted.current = true;
-    if (!touched) setTouched(true);
+    setTouched(true);
+    if (!hasValue) onChange(items[initialIdx]);
   };
 
   const handleScroll = () => {
