@@ -30,6 +30,8 @@ export type SignupRecord = {
   status: string;
   verified_at: string | null;
   verified_by_name: string | null;
+  paid_at: string | null;
+  paid_by_name: string | null;
   photo_face_url: string;
   photo_body_url: string;
   photo_id_key: string | null;
@@ -63,9 +65,12 @@ export function formatNotification(
   lines.push('🌹 <b>신규 참가 신청</b>');
   lines.push(`ID: <code>${escapeHtml(s.id.slice(0, 8))}</code>`);
 
-  if (s.status === 'normal' && s.verified_at) {
+  if (s.status === 'paid' && s.paid_at) {
+    const by = s.paid_by_name ? ` (by ${escapeHtml(s.paid_by_name)})` : '';
+    lines.push(`<b>상태:</b> 💰 입금 완료${by} · ${formatTimestamp(s.paid_at)}`);
+  } else if (s.status === 'normal' && s.verified_at) {
     const by = s.verified_by_name ? ` (by ${escapeHtml(s.verified_by_name)})` : '';
-    lines.push(`<b>상태:</b> ✓ 확인됨${by} · ${formatTimestamp(s.verified_at)}`);
+    lines.push(`<b>상태:</b> ✓ 본인확인 (입금 대기)${by} · ${formatTimestamp(s.verified_at)}`);
   } else {
     lines.push('<b>상태:</b> 🟡 대기 중');
   }
@@ -126,6 +131,8 @@ export function buildButtons(signup: SignupRecord): InlineKeyboardMarkup {
   const row1: InlineKeyboardButton[] = [];
   if (signup.status === 'pending') {
     row1.push({ text: '✓ 확인', callback_data: `verify:${signup.id}` });
+  } else if (signup.status === 'normal') {
+    row1.push({ text: '💰 입금완료', callback_data: `paid:${signup.id}` });
   }
   row1.push({ text: '✗ 거절', callback_data: `reject:${signup.id}` });
   buttons.push(row1);

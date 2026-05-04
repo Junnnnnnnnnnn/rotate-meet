@@ -120,7 +120,10 @@ async function handleCallback(cb: TelegramCallbackQuery): Promise<void> {
   try {
     if (action === 'verify') {
       await actionVerify(signupId, notifyMsgId, operator.id, operatorName);
-      await answerCallbackQuery(cb.id, '✓ 확인 완료');
+      await answerCallbackQuery(cb.id, '✓ 본인확인 완료');
+    } else if (action === 'paid') {
+      await actionPaid(signupId, notifyMsgId, operator.id, operatorName);
+      await answerCallbackQuery(cb.id, '💰 입금 완료 처리됨');
     } else if (action === 'reject') {
       await actionReject(signupId, notifyMsgId, operatorName);
       await answerCallbackQuery(cb.id, '✗ 거절 — 데이터 삭제됨');
@@ -135,7 +138,8 @@ async function handleCallback(cb: TelegramCallbackQuery): Promise<void> {
     }
   } catch (err) {
     console.error(`Action ${action} failed:`, err);
-    await answerCallbackQuery(cb.id, '처리 중 오류가 발생했어요', true);
+    const errMsg = err instanceof Error ? err.message : '처리 중 오류가 발생했어요';
+    await answerCallbackQuery(cb.id, errMsg.slice(0, 200), true);
   }
 }
 
@@ -173,6 +177,11 @@ async function handleMessage(msg: TelegramMessage): Promise<void> {
     await sendList();
     return;
   }
+  if (cmd === '/paid' && msg.from) {
+    const args = text.replace(/^\/paid(@\S+)?\s*/, '').trim();
+    await handlePaidCommand(args, msg.from);
+    return;
+  }
   if (cmd === '/help' || cmd === '/start' || text === '도움말') {
     await sendHelp();
     return;
@@ -197,6 +206,37 @@ async function actionVerify(
     .select()
     .single();
   if (error || !data) throw new Error(`Verify failed: ${error?.message}`);
+  await refreshNotifyMessage(data as SignupRecord, notifyMsgId);
+}
+
+async function actionPaid(
+  signupId: string,
+  notifyMsgId: number,
+  operatorId: number,
+  operatorName: string,
+): Promise<void> {
+  const { data: current, error: fetchErr } = await supabaseAdmin
+    .from('signups')
+    .select('status')
+    .eq('id', signupId)
+    .single();
+  if (fetchErr || !current) throw new Error('신청서를 찾을 수 없어요');
+  if (current.status !== 'normal') {
+    throw new Error('본인확인을 먼저 해주세요');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('signups')
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      paid_by_id: operatorId,
+      paid_by_name: operatorName,
+    })
+    .eq('id', signupId)
+    .select()
+    .single();
+  if (error || !data) throw new Error(`입금 처리 실패: ${error?.message}`);
   await refreshNotifyMessage(data as SignupRecord, notifyMsgId);
 }
 
@@ -386,10 +426,12 @@ async function sendStatus(): Promise<void> {
 
   let pending = 0;
   let normal = 0;
+  let paid = 0;
   let cancelled = 0;
   for (const row of rows) {
     if (row.status === 'pending') pending++;
     else if (row.status === 'normal') normal++;
+    else if (row.status === 'paid') paid++;
     else if (row.status === 'cancelled') cancelled++;
   }
 
@@ -397,8 +439,9 @@ async function sendStatus(): Promise<void> {
     '📊 <b>신청 현황</b>',
     '',
     `총 ${rows.length}건`,
-    `🟡 대기: ${pending}건`,
-    `✓ 확인: ${normal}건`,
+    `🟡 본인확인 대기: ${pending}건`,
+    `✓ 입금 대기: ${normal}건`,
+    `💰 입금 완료: ${paid}건`,
   ];
   if (cancelled > 0) lines.push(`✗ 취소: ${cancelled}건`);
   await sendMessage(lines.join('\n'), { parse_mode: 'HTML' });
@@ -407,9 +450,8 @@ async function sendStatus(): Promise<void> {
 async function sendList(): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from('signups')
-    .select('id, name, status, created_at')
-    .order('created_at', { ascending: false })
-    .limit(20);
+    .select('id, name, phone, status, created_at')
+    .order('created_at', { ascending: true });
   if (error) {
     await sendMessage(`목록 조회 실패: ${error.message}`);
     return;
@@ -419,19 +461,165 @@ async function sendList(): Promise<void> {
     return;
   }
 
-  const STATUS_BADGE: Record<string, string> = {
-    pending: '🟡',
-    normal: '✓',
-    cancelled: '✗',
-  };
+  const pending = data.filter((r) => r.status === 'pending');
+  const normal = data.filter((r) => r.status === 'normal');
+  const paid = data.filter((r) => r.status === 'paid');
+  const cancelled = data.filter((r) => r.status === 'cancelled');
 
-  const lines = ['📋 <b>최근 신청 (최대 20건)</b>', ''];
-  data.forEach((row, i) => {
-    const status = row.status as string;
-    const badge = STATUS_BADGE[status] ?? '?';
-    const ts = formatTimestamp(row.created_at as string);
-    lines.push(`${i + 1}. ${badge} ${escapeHtml(row.name as string)} · ${ts}`);
-  });
+  const lines: string[] = [];
+  lines.push(`📋 <b>신청 현황 (총 ${data.length}건)</b>`);
+
+  if (pending.length > 0) {
+    lines.push('');
+    lines.push(`🟡 <b>본인확인 대기 (${pending.length}건)</b> — [✓ 확인] 필요`);
+    pending.forEach((r, i) => {
+      const idShort = (r.id as string).slice(0, 8);
+      const ts = formatTimestamp(r.created_at as string);
+      lines.push(
+        `${i + 1}. ${escapeHtml(r.name as string)} · ${escapeHtml(r.phone as string)} · <code>${idShort}</code> · ${ts}`,
+      );
+    });
+  }
+
+  if (normal.length > 0) {
+    lines.push('');
+    lines.push(`✓ <b>입금 대기 (${normal.length}건)</b> — 계좌 안내 후 [💰 입금완료]`);
+    normal.forEach((r, i) => {
+      const idShort = (r.id as string).slice(0, 8);
+      const ts = formatTimestamp(r.created_at as string);
+      lines.push(
+        `${i + 1}. ${escapeHtml(r.name as string)} · ${escapeHtml(r.phone as string)} · <code>${idShort}</code> · ${ts}`,
+      );
+    });
+  }
+
+  if (paid.length > 0) {
+    lines.push('');
+    lines.push(`💰 <b>입금 완료 (${paid.length}건)</b> — 참가 확정`);
+    paid.forEach((r, i) => {
+      const ts = formatTimestamp(r.created_at as string);
+      lines.push(`${i + 1}. ${escapeHtml(r.name as string)} · ${ts}`);
+    });
+  }
+
+  if (cancelled.length > 0) {
+    lines.push('');
+    lines.push(`✗ <b>취소 (${cancelled.length}건)</b>`);
+    cancelled.forEach((r, i) => {
+      lines.push(`${i + 1}. ${escapeHtml(r.name as string)}`);
+    });
+  }
+
+  let text = lines.join('\n');
+  if (text.length > 4000) {
+    text = text.slice(0, 4000) + '\n\n... (더 있음, 일부만 표시)';
+  }
+  await sendMessage(text, { parse_mode: 'HTML' });
+}
+
+async function handlePaidCommand(
+  args: string,
+  operator: TelegramUser,
+): Promise<void> {
+  const prefixes = args.split(/\s+/).filter(Boolean);
+  if (prefixes.length === 0) {
+    await sendMessage(
+      '사용법: <code>/paid abc12345 [def67890 ...]</code>\n각 신청서 8자리 ID를 입력해주세요.',
+      { parse_mode: 'HTML' },
+    );
+    return;
+  }
+
+  const { data: candidates, error: fetchErr } = await supabaseAdmin
+    .from('signups')
+    .select('*')
+    .eq('status', 'normal');
+  if (fetchErr) {
+    await sendMessage(`조회 실패: ${fetchErr.message}`);
+    return;
+  }
+
+  const operatorName = formatUserName(operator);
+  const now = new Date().toISOString();
+  const results: Array<{
+    prefix: string;
+    ok: boolean;
+    name?: string;
+    reason?: string;
+  }> = [];
+
+  for (const prefix of prefixes) {
+    if (prefix.length < 4) {
+      results.push({ prefix, ok: false, reason: '최소 4자리' });
+      continue;
+    }
+    const matches = (candidates ?? []).filter((r) =>
+      (r.id as string).startsWith(prefix),
+    );
+    if (matches.length === 0) {
+      results.push({
+        prefix,
+        ok: false,
+        reason: '본인확인된 신청서를 찾을 수 없어요',
+      });
+      continue;
+    }
+    if (matches.length > 1) {
+      results.push({ prefix, ok: false, reason: '중복 매칭 — 더 긴 prefix 필요' });
+      continue;
+    }
+
+    const target = matches[0] as SignupRecord & {
+      telegram_notify_msg_id: number | null;
+    };
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from('signups')
+      .update({
+        status: 'paid',
+        paid_at: now,
+        paid_by_id: operator.id,
+        paid_by_name: operatorName,
+      })
+      .eq('id', target.id)
+      .select()
+      .single();
+    if (updErr || !updated) {
+      results.push({
+        prefix,
+        ok: false,
+        name: target.name,
+        reason: updErr?.message ?? '실패',
+      });
+      continue;
+    }
+
+    const u = updated as SignupRecord & {
+      telegram_notify_msg_id: number | null;
+    };
+    if (u.telegram_notify_msg_id) {
+      try {
+        await refreshNotifyMessage(u, u.telegram_notify_msg_id);
+      } catch (e) {
+        console.error('Refresh failed:', e);
+      }
+    }
+    results.push({ prefix, ok: true, name: u.name });
+  }
+
+  const lines = ['💰 <b>입금 처리 결과</b>', ''];
+  let okCount = 0;
+  for (const r of results) {
+    if (r.ok) {
+      lines.push(`✓ <code>${escapeHtml(r.prefix)}</code> — ${escapeHtml(r.name ?? '')}`);
+      okCount++;
+    } else {
+      lines.push(
+        `✗ <code>${escapeHtml(r.prefix)}</code> — ${escapeHtml(r.reason ?? '실패')}`,
+      );
+    }
+  }
+  lines.push('');
+  lines.push(`총 ${okCount}건 처리 완료`);
   await sendMessage(lines.join('\n'), { parse_mode: 'HTML' });
 }
 
@@ -440,12 +628,14 @@ async function sendHelp(): Promise<void> {
     '🤖 <b>봇 사용법</b>',
     '',
     '<b>명령어</b>',
-    '/status (또는 "현황") — 신청 현황 통계',
-    '/list (또는 "목록") — 최근 신청 20건',
+    '/status (또는 "현황") — 신청 현황 카운트',
+    '/list (또는 "목록") — 상태별 신청 목록',
+    '/paid abc12345 [def67890 ...] — 입금 완료 처리 (배치)',
     '/help (또는 "도움말") — 이 메시지',
     '',
     '<b>각 신청 메시지의 버튼</b>',
-    '✓ 확인 — 본인확인 완료 처리',
+    '✓ 확인 — 본인확인 완료 (대기 → 입금 대기)',
+    '💰 입금완료 — 입금 확인 (입금 대기 → 참가 확정)',
     '✗ 거절 — 신청 거절 (DB + R2 사진 모두 삭제)',
     '🗑 신분증 폐기 — 신분증 사진만 R2에서 삭제',
     '💬 메모 — 답장(reply)으로 메모 추가',
