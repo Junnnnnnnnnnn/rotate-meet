@@ -12,6 +12,7 @@ import {
   answerCallbackQuery,
   escapeHtml,
   TELEGRAM_CHAT_ID,
+  type InlineKeyboardButton,
 } from '@/lib/telegram';
 import {
   formatNotification,
@@ -67,6 +68,12 @@ type TelegramUpdate = {
 
 function formatUserName(u: TelegramUser): string {
   return u.last_name ? `${u.first_name} ${u.last_name}` : u.first_name;
+}
+
+function getMessageUrl(messageId: number): string | null {
+  if (OPERATOR_CHAT_ID >= -1_000_000_000_000) return null;
+  const shortId = Math.abs(OPERATOR_CHAT_ID) - 1_000_000_000_000;
+  return `https://t.me/c/${shortId}/${messageId}`;
 }
 
 function getCommand(text: string): string | null {
@@ -447,10 +454,19 @@ async function sendStatus(): Promise<void> {
   await sendMessage(lines.join('\n'), { parse_mode: 'HTML' });
 }
 
+type ListRow = {
+  id: string;
+  name: string;
+  phone: string;
+  status: string;
+  created_at: string;
+  telegram_notify_msg_id: number | null;
+};
+
 async function sendList(): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from('signups')
-    .select('id, name, phone, status, created_at')
+    .select('id, name, phone, status, created_at, telegram_notify_msg_id')
     .order('created_at', { ascending: true });
   if (error) {
     await sendMessage(`목록 조회 실패: ${error.message}`);
@@ -461,60 +477,87 @@ async function sendList(): Promise<void> {
     return;
   }
 
-  const pending = data.filter((r) => r.status === 'pending');
-  const normal = data.filter((r) => r.status === 'normal');
-  const paid = data.filter((r) => r.status === 'paid');
-  const cancelled = data.filter((r) => r.status === 'cancelled');
+  const rows = data as ListRow[];
+  const pending = rows.filter((r) => r.status === 'pending');
+  const normal = rows.filter((r) => r.status === 'normal');
+  const paid = rows.filter((r) => r.status === 'paid');
+  const cancelled = rows.filter((r) => r.status === 'cancelled');
 
   const lines: string[] = [];
-  lines.push(`📋 <b>신청 현황 (총 ${data.length}건)</b>`);
+  lines.push(`📋 <b>신청 현황 (총 ${rows.length}건)</b>`);
+
+  let globalIdx = 0;
+  const buttons: InlineKeyboardButton[][] = [];
+  let buttonRow: InlineKeyboardButton[] = [];
+  const addButton = (idx: number, msgId: number | null) => {
+    if (!msgId) return;
+    const url = getMessageUrl(msgId);
+    if (!url) return;
+    buttonRow.push({ text: `→ ${idx}`, url });
+    if (buttonRow.length === 5) {
+      buttons.push(buttonRow);
+      buttonRow = [];
+    }
+  };
 
   if (pending.length > 0) {
     lines.push('');
     lines.push(`🟡 <b>본인확인 대기 (${pending.length}건)</b> — [✓ 확인] 필요`);
-    pending.forEach((r, i) => {
-      const idShort = (r.id as string).slice(0, 8);
-      const ts = formatTimestamp(r.created_at as string);
+    pending.forEach((r) => {
+      globalIdx++;
+      const idShort = r.id.slice(0, 8);
+      const ts = formatTimestamp(r.created_at);
       lines.push(
-        `${i + 1}. ${escapeHtml(r.name as string)} · ${escapeHtml(r.phone as string)} · <code>${idShort}</code> · ${ts}`,
+        `${globalIdx}. ${escapeHtml(r.name)} · ${escapeHtml(r.phone)} · <code>${idShort}</code> · ${ts}`,
       );
+      addButton(globalIdx, r.telegram_notify_msg_id);
     });
   }
 
   if (normal.length > 0) {
     lines.push('');
     lines.push(`✓ <b>입금 대기 (${normal.length}건)</b> — 계좌 안내 후 [💰 입금완료]`);
-    normal.forEach((r, i) => {
-      const idShort = (r.id as string).slice(0, 8);
-      const ts = formatTimestamp(r.created_at as string);
+    normal.forEach((r) => {
+      globalIdx++;
+      const idShort = r.id.slice(0, 8);
+      const ts = formatTimestamp(r.created_at);
       lines.push(
-        `${i + 1}. ${escapeHtml(r.name as string)} · ${escapeHtml(r.phone as string)} · <code>${idShort}</code> · ${ts}`,
+        `${globalIdx}. ${escapeHtml(r.name)} · ${escapeHtml(r.phone)} · <code>${idShort}</code> · ${ts}`,
       );
+      addButton(globalIdx, r.telegram_notify_msg_id);
     });
   }
 
   if (paid.length > 0) {
     lines.push('');
     lines.push(`💰 <b>입금 완료 (${paid.length}건)</b> — 참가 확정`);
-    paid.forEach((r, i) => {
-      const ts = formatTimestamp(r.created_at as string);
-      lines.push(`${i + 1}. ${escapeHtml(r.name as string)} · ${ts}`);
+    paid.forEach((r) => {
+      globalIdx++;
+      const ts = formatTimestamp(r.created_at);
+      lines.push(`${globalIdx}. ${escapeHtml(r.name)} · ${ts}`);
+      addButton(globalIdx, r.telegram_notify_msg_id);
     });
   }
 
   if (cancelled.length > 0) {
     lines.push('');
     lines.push(`✗ <b>취소 (${cancelled.length}건)</b>`);
-    cancelled.forEach((r, i) => {
-      lines.push(`${i + 1}. ${escapeHtml(r.name as string)}`);
+    cancelled.forEach((r) => {
+      globalIdx++;
+      lines.push(`${globalIdx}. ${escapeHtml(r.name)}`);
     });
   }
+
+  if (buttonRow.length > 0) buttons.push(buttonRow);
 
   let text = lines.join('\n');
   if (text.length > 4000) {
     text = text.slice(0, 4000) + '\n\n... (더 있음, 일부만 표시)';
   }
-  await sendMessage(text, { parse_mode: 'HTML' });
+  await sendMessage(text, {
+    parse_mode: 'HTML',
+    reply_markup: buttons.length > 0 ? { inline_keyboard: buttons } : undefined,
+  });
 }
 
 async function handlePaidCommand(

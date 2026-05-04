@@ -31,13 +31,9 @@ type FormFlowProps = {
 
 type Direction = 'forward' | 'backward';
 
-function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, body] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)?.[1] ?? 'application/octet-stream';
-  const binary = atob(body);
-  const buffer = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
-  return new Blob([buffer], { type: mime });
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const res = await fetch(dataUrl);
+  return res.blob();
 }
 
 function extFromMime(mime: string): string {
@@ -83,7 +79,7 @@ async function submitToServer(data: FormData, heroVariant: HeroVariant): Promise
   ];
   for (const [key, dataUrl] of photos) {
     if (!dataUrl) throw new SubmitError(`${key} 사진이 누락되었어요`);
-    const blob = dataUrlToBlob(dataUrl);
+    const blob = await dataUrlToBlob(dataUrl);
     fd.append(key, blob, `${key}.${extFromMime(blob.type)}`);
   }
 
