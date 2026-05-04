@@ -2,20 +2,26 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Landing from './Landing';
+import Landing, { type HeroVariant } from './Landing';
 import FormFlow from './FormFlow';
 import Success from './Success';
 
-const HERO_VARIANTS = new Set(['default', 'centered', 'minimal']);
+type Route = 'landing' | 'form' | 'success';
+
+const HERO_VARIANTS = new Set<HeroVariant>(['default', 'centered', 'minimal']);
+
+function isHeroVariant(value: string | null): value is HeroVariant {
+  return value !== null && HERO_VARIANTS.has(value as HeroVariant);
+}
 
 export default function App() {
   const params = useSearchParams();
   const heroParam = params.get('hero');
-  const heroVariant = HERO_VARIANTS.has(heroParam) ? heroParam : 'default';
+  const heroVariant: HeroVariant = isHeroVariant(heroParam) ? heroParam : 'default';
 
-  const [route, setRoute] = useState('landing');
+  const [route, setRoute] = useState<Route>('landing');
 
-  const go = (next) => setRoute(next);
+  const go = (next: Route) => setRoute(next);
   const back = () => setRoute('landing');
 
   return (

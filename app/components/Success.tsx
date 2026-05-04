@@ -1,6 +1,10 @@
 'use client';
 
-export default function Success({ onHome }) {
+type SuccessProps = {
+  onHome: () => void;
+};
+
+export default function Success({ onHome }: SuccessProps) {
   return (
     <div className="success-screen" data-screen-label="Success">
       <div className="success-art">

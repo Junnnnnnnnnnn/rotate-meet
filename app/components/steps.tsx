@@ -1,8 +1,52 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type ComponentType,
+} from 'react';
 
-export function StepHeader({ title, helper }) {
+export type FormData = {
+  name: string;
+  phone: string;
+  birthdate: string;
+  participation: string;
+  height: string | number;
+  weight: string | number;
+  mbti: string;
+  photoFace: string | null;
+  photoBody: string | null;
+  photoId: string | null;
+  job: string;
+  idealType: string;
+  strengths: string;
+  preferAge: string;
+  drink: string;
+  channel: string;
+  insta: string;
+  companion: string;
+  refundAgreed: boolean;
+  idealTagsArr?: string[];
+  idealTypeNote?: string;
+};
+
+export type FormErrors = Partial<Record<keyof FormData, string>>;
+
+export type StepProps = {
+  data: FormData;
+  update: (patch: Partial<FormData>) => void;
+  errors: FormErrors;
+  shakeKey: number;
+};
+
+type StepHeaderProps = {
+  title: string;
+  helper?: string;
+};
+
+export function StepHeader({ title, helper }: StepHeaderProps) {
   return (
     <>
       <h2 className="step-title">{title}</h2>
@@ -11,13 +55,18 @@ export function StepHeader({ title, helper }) {
   );
 }
 
-export function ErrText({ msg }) {
+export function ErrText({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <div className="err-text">{msg}</div>;
 }
 
-export function ShakeWrap({ shakeKey, children }) {
-  const ref = useRef(null);
+type ShakeWrapProps = {
+  shakeKey: number;
+  children: ReactNode;
+};
+
+export function ShakeWrap({ shakeKey, children }: ShakeWrapProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
   const prev = useRef(0);
   useEffect(() => {
     if (shakeKey > 0 && shakeKey !== prev.current && ref.current) {
@@ -31,15 +80,15 @@ export function ShakeWrap({ shakeKey, children }) {
   return <div className="shake-wrap" ref={ref}>{children}</div>;
 }
 
-function Step1({ data, update, errors }) {
-  const onPhone = (v) => {
+function Step1({ data, update, errors }: StepProps) {
+  const onPhone = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 11);
     let f = digits;
     if (digits.length > 3 && digits.length <= 7) f = digits.slice(0, 3) + '-' + digits.slice(3);
     else if (digits.length > 7) f = digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7);
     update({ phone: f });
   };
-  const onBirth = (v) => {
+  const onBirth = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 8);
     let f = digits;
     if (digits.length > 4 && digits.length <= 6) f = digits.slice(0, 4) + '-' + digits.slice(4);
@@ -85,7 +134,7 @@ function Step1({ data, update, errors }) {
   );
 }
 
-function Step2({ data, update, errors }) {
+function Step2({ data, update, errors }: StepProps) {
   const opts = [
     { v: 'new', t: '신규 참가', s: '로테이션 소개팅이 처음이에요' },
     { v: 'repeat', t: '재참가', s: '이전에 참가한 적 있어요' },
@@ -132,14 +181,14 @@ const MBTI_LIST = [
   { code: 'ENTJ', desc: '대담한 통솔자' },
 ];
 
-function mbtiColor(code) {
+function mbtiColor(code: string): string {
   if (code[1] === 'N' && code[2] === 'T') return '#1F1A1A';
   if (code[1] === 'N' && code[2] === 'F') return '#FF6B5B';
   if (code[1] === 'S' && code[3] === 'J') return '#4FB286';
   return '#E8A93C';
 }
 
-function Step3({ data, update, errors, shakeKey }) {
+function Step3({ data, update, errors, shakeKey }: StepProps) {
   return (
     <>
       <StepHeader title="키와 몸무게를 알려주세요" helper="매칭 안내에만 활용되며 외부 공개되지 않아요." />
@@ -150,7 +199,6 @@ function Step3({ data, update, errors, shakeKey }) {
           value={data.height}
           min={140}
           max={210}
-          defaultIdx={30}
           onChange={(v) => update({ height: v })}
           err={errors.height}
           shakeKey={shakeKey}
@@ -160,7 +208,6 @@ function Step3({ data, update, errors, shakeKey }) {
           value={data.weight}
           min={35}
           max={130}
-          defaultIdx={25}
           onChange={(v) => update({ weight: v })}
           err={errors.weight}
           shakeKey={shakeKey}
@@ -189,16 +236,27 @@ function Step3({ data, update, errors, shakeKey }) {
   );
 }
 
-function WheelPicker({ label, value, min, max, onChange, err, shakeKey }) {
-  const ref = useRef(null);
+type WheelPickerProps = {
+  label: string;
+  value: string | number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+  err?: string;
+  shakeKey: number;
+};
+
+function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelPickerProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
   const userInteracted = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [touched, setTouched] = useState(false);
 
   const ITEM_H = 40;
   const WINDOW_H = 160;
   const SPACER = (WINDOW_H - ITEM_H) / 2;
 
-  const items = [];
+  const items: number[] = [];
   for (let i = min; i <= max; i++) items.push(i);
 
   const hasValue = value !== '' && value !== null && value !== undefined;
@@ -222,8 +280,9 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }) {
   const handleScroll = () => {
     if (!ref.current) return;
     if (!userInteracted.current) return;
-    clearTimeout(handleScroll._t);
-    handleScroll._t = setTimeout(() => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      if (!ref.current) return;
       const idx = Math.round(ref.current.scrollTop / ITEM_H);
       const v = items[Math.max(0, Math.min(items.length - 1, idx))];
       if (v !== numVal) onChange(v);
@@ -269,11 +328,16 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }) {
   );
 }
 
-function Step4({ data, update, errors }) {
-  const onFile = (key, file) => {
+type PhotoKey = 'photoFace' | 'photoBody' | 'photoId';
+
+function Step4({ data, update, errors }: StepProps) {
+  const onFile = (key: PhotoKey, file: File | undefined) => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => update({ [key]: reader.result });
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') update({ [key]: result } as Partial<FormData>);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -316,8 +380,18 @@ function Step4({ data, update, errors }) {
   );
 }
 
-function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }) {
-  const inputRef = useRef(null);
+type PhotoUploadProps = {
+  label: string;
+  hint: string;
+  data: string | null;
+  onSelect: (file: File | undefined) => void;
+  onClear: () => void;
+  err?: string;
+  iconKey: 'face' | 'body';
+};
+
+function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }: PhotoUploadProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   if (data) {
     return (
       <div className="upload upload--filled">
@@ -353,8 +427,15 @@ function PhotoUpload({ label, hint, data, onSelect, onClear, err, iconKey }) {
   );
 }
 
-function IdUpload({ data, onSelect, onClear, err }) {
-  const inputRef = useRef(null);
+type IdUploadProps = {
+  data: string | null;
+  onSelect: (file: File | undefined) => void;
+  onClear: () => void;
+  err?: string;
+};
+
+function IdUpload({ data, onSelect, onClear, err }: IdUploadProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   if (data) {
     return (
       <div className="id-upload id-upload--filled">
@@ -407,11 +488,11 @@ const IDEAL_TAGS = [
   '센스있는', '자상함', '리더십', '겸손함',
 ];
 
-function Step5({ data, update, errors }) {
-  const [tags, setTags] = useState(() => data.idealTagsArr || []);
+function Step5({ data, update, errors }: StepProps) {
+  const [tags, setTags] = useState<string[]>(() => data.idealTagsArr || []);
 
-  const toggleTag = (t) => {
-    let next;
+  const toggleTag = (t: string) => {
+    let next: string[];
     if (tags.includes(t)) next = tags.filter((x) => x !== t);
     else if (tags.length >= 5) return;
     else next = [...tags, t];
@@ -456,7 +537,7 @@ function Step5({ data, update, errors }) {
         </div>
         <textarea
           className="text-input"
-          rows="3"
+          rows={3}
           style={{ marginTop: '10px' }}
           value={data.idealTypeNote || ''}
           onChange={(e) => {
@@ -474,7 +555,7 @@ function Step5({ data, update, errors }) {
         <label className="field-label">본인의 장점 <span className="opt">(선택)</span></label>
         <textarea
           className="text-input"
-          rows="3"
+          rows={3}
           value={data.strengths}
           onChange={(e) => update({ strengths: e.target.value })}
           placeholder="다른 사람이 알아봐줬으면 하는 매력"
@@ -484,7 +565,16 @@ function Step5({ data, update, errors }) {
   );
 }
 
-function ChipField({ label, options, value, onChange, required, err }) {
+type ChipFieldProps = {
+  label: string;
+  options: readonly string[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  err?: string;
+};
+
+function ChipField({ label, options, value, onChange, required, err }: ChipFieldProps) {
   return (
     <div className="field">
       <label className="field-label">
@@ -508,7 +598,7 @@ function ChipField({ label, options, value, onChange, required, err }) {
   );
 }
 
-function Step6({ data, update, errors }) {
+function Step6({ data, update, errors }: StepProps) {
   return (
     <>
       <StepHeader title="몇 가지만 더요" helper="취향에 맞는 자리를 준비할게요." />
@@ -543,7 +633,7 @@ function Step6({ data, update, errors }) {
   );
 }
 
-function Step7({ data, update }) {
+function Step7({ data, update }: StepProps) {
   return (
     <>
       <StepHeader title="마지막으로 두 가지만" helper="선택 항목이지만, 적어주시면 큰 도움이 돼요." />
@@ -560,7 +650,7 @@ function Step7({ data, update }) {
         <label className="field-label">동반 참석자 <span className="opt">(선택)</span></label>
         <textarea
           className="text-input"
-          rows="3"
+          rows={3}
           value={data.companion}
           onChange={(e) => update({ companion: e.target.value })}
           placeholder="함께 신청하실 분이 있다면 이름과 연락처"
@@ -574,7 +664,7 @@ function Step7({ data, update }) {
   );
 }
 
-function Step8({ data, update, errors }) {
+function Step8({ data, update, errors }: StepProps) {
   return (
     <>
       <StepHeader title="환불 규정에 동의해주세요" helper="아래 내용을 꼭 확인해주세요." />
@@ -601,7 +691,7 @@ function Step8({ data, update, errors }) {
   );
 }
 
-export const STEP_COMPONENTS = {
+export const STEP_COMPONENTS: Record<number, ComponentType<StepProps>> = {
   1: Step1,
   2: Step2,
   3: Step3,

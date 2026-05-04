@@ -1,6 +1,17 @@
 'use client';
 
-export default function Landing({ onApply, heroVariant }) {
+export type HeroVariant = 'default' | 'centered' | 'minimal';
+
+type LandingProps = {
+  onApply: () => void;
+  heroVariant: HeroVariant;
+};
+
+type HeroProps = {
+  onApply: () => void;
+};
+
+export default function Landing({ onApply, heroVariant }: LandingProps) {
   return (
     <div className="landing">
       {heroVariant === 'default' && <HeroPoster onApply={onApply} />}
@@ -11,11 +22,11 @@ export default function Landing({ onApply, heroVariant }) {
         <div className="eyebrow">FOR WHO</div>
         <h2 className="sec-title">이런 분들을<br />찾고 있어요</h2>
         <div className="target-list">
-          {[
+          {([
             ['01', '결혼에 진심인 분', '가벼운 만남이 아닌, 평생 함께할 사람을 찾는 분'],
             ['02', '2030 결혼 적령기', '91~00년생 솔로'],
             ['03', '진짜 인연을 찾고 싶은 분', '여러 사람과 짧지만 밀도 있게 대화하고 싶은 분'],
-          ].map(([n, t, s]) => (
+          ] as const).map(([n, t, s]) => (
             <div className="target-row" key={n}>
               <span className="target-num">{n}</span>
               <div>
@@ -31,11 +42,11 @@ export default function Landing({ onApply, heroVariant }) {
         <div className="eyebrow">HOW IT WORKS</div>
         <h2 className="sec-title">로테이션이 뭔가요?</h2>
         <div className="how-list">
-          {[
+          {([
             ['1', '한 자리에 모이기', '남녀 동수가 한 카페에 모여요'],
             ['2', '한 사람씩, 5분 대화', '5분이 지나면 자리를 바꿔요'],
             ['3', '모두와 대화 후, 매칭', '마음에 든 사람을 적어 제출'],
-          ].map(([n, t, s]) => (
+          ] as const).map(([n, t, s]) => (
             <div className="how-step" key={n}>
               <div className="step-circle">{n}</div>
               <div>
@@ -65,7 +76,7 @@ export default function Landing({ onApply, heroVariant }) {
   );
 }
 
-function HeroPoster() {
+function HeroPoster(_props: HeroProps) {
   return (
     <section className="hero hero--poster">
       <h1 className="hero-title">
@@ -90,7 +101,7 @@ function HeroPoster() {
   );
 }
 
-function HeroCentered({ onApply }) {
+function HeroCentered({ onApply }: HeroProps) {
   return (
     <section className="hero hero--centered">
       <div className="badge-pill">제 1회 · 2026.05.23</div>
@@ -111,7 +122,7 @@ function HeroCentered({ onApply }) {
   );
 }
 
-function HeroMinimal({ onApply }) {
+function HeroMinimal({ onApply }: HeroProps) {
   return (
     <section className="hero hero--minimal">
       <div className="minimal-eyebrow">제 1회 로테이션 소개팅</div>

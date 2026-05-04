@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShakeWrap, STEP_COMPONENTS } from './steps';
+import {
+  ShakeWrap,
+  STEP_COMPONENTS,
+  type FormData,
+  type FormErrors,
+} from './steps';
 
 const TOTAL_STEPS = 8;
 
-const INITIAL_DATA = {
+const INITIAL_DATA: FormData = {
   name: '', phone: '', birthdate: '',
   participation: '',
   height: '', weight: '', mbti: '',
@@ -16,21 +21,28 @@ const INITIAL_DATA = {
   refundAgreed: false,
 };
 
-export default function FormFlow({ onComplete, onExit }) {
+type FormFlowProps = {
+  onComplete: () => void;
+  onExit: () => void;
+};
+
+type Direction = 'forward' | 'backward';
+
+export default function FormFlow({ onComplete, onExit }: FormFlowProps) {
   const [step, setStep] = useState(1);
-  const [direction, setDirection] = useState('forward');
-  const [data, setData] = useState(INITIAL_DATA);
-  const [errors, setErrors] = useState({});
+  const [direction, setDirection] = useState<Direction>('forward');
+  const [data, setData] = useState<FormData>(INITIAL_DATA);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [shakeKey, setShakeKey] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [step]);
 
-  const update = (patch) => setData((d) => ({ ...d, ...patch }));
+  const update = (patch: Partial<FormData>) => setData((d) => ({ ...d, ...patch }));
 
-  const validateStep = (s) => {
-    const e = {};
+  const validateStep = (s: number): FormErrors => {
+    const e: FormErrors = {};
     if (s === 1) {
       if (!data.name.trim()) e.name = '이름을 입력해주세요';
       if (!data.phone.trim()) e.phone = '연락처를 입력해주세요';
