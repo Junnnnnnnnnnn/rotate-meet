@@ -4,39 +4,49 @@ import {
   type InlineKeyboardMarkup,
 } from './telegram';
 
-const PARTICIPATION_LABEL: Record<string, string> = {
-  new: '신규',
-  repeat: '재참가',
+const GENDER_LABEL: Record<string, string> = {
+  male: '남',
+  female: '여',
+};
+
+const SESSION_LABEL: Record<string, string> = {
+  '2025-05-23-sinchon': '5/23(토) 신촌점 19시',
 };
 
 export type SignupRecord = {
   id: string;
+  event_session_id: string;
   name: string;
   phone: string;
   birthdate: string;
-  participation: string;
+  gender: 'male' | 'female';
   height_cm: number;
   weight_kg: number;
   mbti: string;
   job: string;
   ideal_tags: string[];
   ideal_type_note: string | null;
-  strengths: string | null;
   prefer_age: string;
   drink: string;
   channel: string;
-  insta: string | null;
   companion: string | null;
+  privacy_agreed: boolean;
+  refund_agreed: boolean;
   status: string;
   verified_at: string | null;
   verified_by_name: string | null;
   paid_at: string | null;
   paid_by_name: string | null;
+  blocked_at: string | null;
+  blocked_by: string | null;
   photo_face_url: string;
   photo_body_url: string;
   photo_id_key: string | null;
+  photo_employment_key: string | null;
   photo_id_deleted_at: string | null;
   photo_id_deleted_by: string | null;
+  photos_purged_at: string | null;
+  photos_purged_by: string | null;
   admin_memos: AdminMemo[];
 };
 
@@ -60,12 +70,18 @@ export function formatTimestamp(iso: string): string {
 export function formatNotification(
   s: SignupRecord,
   idPresignedUrl: string | null,
+  employmentPresignedUrl: string | null,
 ): string {
+  const isBlocked = s.status === 'blocked';
+
   const lines: string[] = [];
-  lines.push('🌹 <b>신규 참가 신청</b>');
+  lines.push(isBlocked ? '❌ <b>거절됨</b>' : '🌹 <b>신규 참가 신청</b>');
   lines.push(`ID: <code>${escapeHtml(s.id.slice(0, 8))}</code>`);
 
-  if (s.status === 'paid' && s.paid_at) {
+  if (isBlocked && s.blocked_at) {
+    const by = s.blocked_by ? ` (by ${escapeHtml(s.blocked_by)})` : '';
+    lines.push(`<b>상태:</b> ❌ 거절${by} · ${formatTimestamp(s.blocked_at)}`);
+  } else if (s.status === 'paid' && s.paid_at) {
     const by = s.paid_by_name ? ` (by ${escapeHtml(s.paid_by_name)})` : '';
     lines.push(`<b>상태:</b> 💰 입금 완료${by} · ${formatTimestamp(s.paid_at)}`);
   } else if (s.status === 'normal' && s.verified_at) {
@@ -77,7 +93,10 @@ export function formatNotification(
 
   lines.push('');
   lines.push(
-    `<b>이름:</b> ${escapeHtml(s.name)} (${PARTICIPATION_LABEL[s.participation] ?? s.participation})`,
+    `<b>참가일:</b> ${escapeHtml(SESSION_LABEL[s.event_session_id] ?? s.event_session_id)}`,
+  );
+  lines.push(
+    `<b>이름:</b> ${escapeHtml(s.name)} (${GENDER_LABEL[s.gender] ?? s.gender})`,
   );
   lines.push(`<b>연락처:</b> ${escapeHtml(s.phone)}`);
   lines.push(`<b>생년월일:</b> ${escapeHtml(s.birthdate)}`);
@@ -96,20 +115,25 @@ export function formatNotification(
   lines.push(`<b>선호 나이대:</b> ${escapeHtml(s.prefer_age)}`);
   lines.push(`<b>음료:</b> ${escapeHtml(s.drink)}`);
   lines.push(`<b>경로:</b> ${escapeHtml(s.channel)}`);
-  if (s.insta) lines.push(`<b>인스타:</b> ${escapeHtml(s.insta)}`);
   if (s.companion) lines.push(`<b>동반:</b> ${escapeHtml(s.companion)}`);
-  if (s.strengths) {
-    lines.push('');
-    lines.push('<b>장점:</b>');
-    lines.push(escapeHtml(s.strengths));
-  }
 
   lines.push('');
-  if (s.photo_id_key && idPresignedUrl) {
-    lines.push(`🪪 <a href="${idPresignedUrl}">신분증 보기 (4시간 유효)</a>`);
-  } else if (s.photo_id_deleted_at) {
-    const by = s.photo_id_deleted_by ? ` (by ${escapeHtml(s.photo_id_deleted_by)})` : '';
-    lines.push(`🗑 신분증 폐기됨${by} · ${formatTimestamp(s.photo_id_deleted_at)}`);
+  if (s.photos_purged_at) {
+    const by = s.photos_purged_by ? ` (by ${escapeHtml(s.photos_purged_by)})` : '';
+    lines.push(`🗑 모든 사진 폐기됨${by} · ${formatTimestamp(s.photos_purged_at)}`);
+    if (isBlocked) {
+      lines.push('<i>DB 데이터는 남기고, 요금 관리를 위해 사진은 삭제됐어요.</i>');
+    }
+  } else {
+    if (s.photo_id_key && idPresignedUrl) {
+      lines.push(`🪪 <a href="${idPresignedUrl}">신분증 보기</a>`);
+    } else if (s.photo_id_deleted_at) {
+      const by = s.photo_id_deleted_by ? ` (by ${escapeHtml(s.photo_id_deleted_by)})` : '';
+      lines.push(`🗑 신분증 폐기됨${by} · ${formatTimestamp(s.photo_id_deleted_at)}`);
+    }
+    if (s.photo_employment_key && employmentPresignedUrl) {
+      lines.push(`💼 <a href="${employmentPresignedUrl}">직업 인증 보기</a>`);
+    }
   }
 
   if (s.admin_memos.length > 0) {
@@ -126,6 +150,10 @@ export function formatNotification(
 }
 
 export function buildButtons(signup: SignupRecord): InlineKeyboardMarkup {
+  if (signup.status === 'blocked') {
+    return { inline_keyboard: [] };
+  }
+
   const buttons: InlineKeyboardButton[][] = [];
 
   const row1: InlineKeyboardButton[] = [];
@@ -142,6 +170,12 @@ export function buildButtons(signup: SignupRecord): InlineKeyboardMarkup {
     row2.push({
       text: '🗑 신분증 폐기',
       callback_data: `delete_id:${signup.id}`,
+    });
+  }
+  if (!signup.photos_purged_at) {
+    row2.push({
+      text: '🗑 모든 사진 폐기',
+      callback_data: `purge:${signup.id}`,
     });
   }
   row2.push({ text: '💬 메모', callback_data: `memo:${signup.id}` });

@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(npx tsc *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(mkdir -p /tmp/claude-design)",
+      "Bash(cp \"C:/Users/wjsgu/.claude/projects/C--WORK-PROJECT-rotate-meet/d8416aa5-6634-42b2-8f22-8b03454df0c5/tool-results/webfetch-1778171355121-35hxep.bin\" /tmp/claude-design/d.gz)",
+      "Bash(gunzip -f /tmp/claude-design/d.gz)",
+      "Read(//tmp/claude-design/**)",
+      "Bash(mkdir -p /tmp/claude-design/extracted)",
+      "Bash(tar -xf /tmp/claude-design/d -C /tmp/claude-design/extracted)"
     ]
   }
 }

@@ -24,12 +24,13 @@ const ALLOWED_TYPES = new Set([
   'image/heif',
 ]);
 
-const PARTICIPATIONS = ['new', 'repeat'] as const;
+const EVENT_SESSIONS = ['2025-05-23-sinchon'] as const;
+const GENDERS = ['male', 'female'] as const;
 const PREFER_AGES = ['동갑', '연상', '연하', '상관없음'] as const;
-const DRINKS = ['아메리카노', '라떼', '아이스티', '탄산수'] as const;
+const DRINKS = ['아메리카노', '아이스티', '캐모마일티'] as const;
 const CHANNELS = ['인스타그램', '친구 추천', '검색', '기타'] as const;
 
-const ID_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
+const PRIVATE_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
 
 class ValidationError extends Error {
   code?: string;
@@ -77,32 +78,34 @@ export async function POST(request: NextRequest) {
   try {
     const fd = await request.formData();
 
+    const eventSessionId = getStr(fd, 'event_session_id');
     const name = getStr(fd, 'name').trim();
     const phone = getStr(fd, 'phone').trim();
     const birthdate = getStr(fd, 'birthdate').trim();
-    const participation = getStr(fd, 'participation');
+    const gender = getStr(fd, 'gender');
     const heightStr = getStr(fd, 'height');
     const weightStr = getStr(fd, 'weight');
     const mbti = getStr(fd, 'mbti').trim().toUpperCase();
     const job = getStr(fd, 'job').trim();
     const idealTagsStr = getStr(fd, 'ideal_tags');
     const idealTypeNote = getStr(fd, 'ideal_type_note').trim();
-    const strengths = getStr(fd, 'strengths').trim();
     const preferAge = getStr(fd, 'prefer_age');
     const drink = getStr(fd, 'drink');
     const channel = getStr(fd, 'channel');
-    const insta = getStr(fd, 'insta').trim();
     const companion = getStr(fd, 'companion').trim();
+    const privacyAgreed = getStr(fd, 'privacy_agreed') === 'true';
     const refundAgreed = getStr(fd, 'refund_agreed') === 'true';
     const heroVariant = getStr(fd, 'hero_variant');
 
+    if (!isOneOf(eventSessionId, EVENT_SESSIONS))
+      throw new ValidationError('참여 날짜 값이 잘못됐어요');
     if (!name) throw new ValidationError('이름이 누락되었어요');
     if (!/^01[016789]-\d{3,4}-\d{4}$/.test(phone))
       throw new ValidationError('연락처 형식이 올바르지 않아요');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate))
       throw new ValidationError('생년월일 형식이 올바르지 않아요');
-    if (!isOneOf(participation, PARTICIPATIONS))
-      throw new ValidationError('참가 이력 값이 잘못됐어요');
+    if (!isOneOf(gender, GENDERS))
+      throw new ValidationError('성별 값이 잘못됐어요');
 
     const heightCm = parseInt(heightStr, 10);
     const weightKg = parseInt(weightStr, 10);
@@ -119,8 +122,27 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('음료 값이 잘못됐어요');
     if (!isOneOf(channel, CHANNELS))
       throw new ValidationError('경로 값이 잘못됐어요');
+    if (!privacyAgreed)
+      throw new ValidationError('개인정보 수집·이용 동의가 필요해요');
     if (!refundAgreed)
       throw new ValidationError('환불 규정 동의가 필요해요');
+
+    const { data: blockedRow, error: blockedErr } = await supabaseAdmin
+      .from('signups')
+      .select('id')
+      .eq('phone', phone)
+      .eq('status', 'blocked')
+      .limit(1)
+      .maybeSingle();
+    if (blockedErr) {
+      throw new Error(`Block lookup failed: ${blockedErr.message}`);
+    }
+    if (blockedRow) {
+      throw new ValidationError(
+        '이전에 거절된 연락처예요. 이 번호로는 더 이상 신청하실 수 없어요.',
+        'phone_blocked',
+      );
+    }
 
     let idealTags: string[] = [];
     try {
@@ -136,14 +158,16 @@ export async function POST(request: NextRequest) {
 
     const photoFace = validatePhoto(fd.get('photoFace'), '얼굴');
     const photoBody = validatePhoto(fd.get('photoBody'), '전신');
-    const photoId = validatePhoto(fd.get('photoId'), '신분증');
+    const photoIdCard = validatePhoto(fd.get('photoIdCard'), '신분증');
+    const photoEmployment = validatePhoto(fd.get('photoEmployment'), '직업 인증');
 
     const id = randomUUID();
     const faceKey = `face/${id}.${extFromMime(photoFace.type)}`;
     const bodyKey = `body/${id}.${extFromMime(photoBody.type)}`;
-    const idKey = `id/${id}.${extFromMime(photoId.type)}`;
+    const idKey = `id/${id}.${extFromMime(photoIdCard.type)}`;
+    const employmentKey = `employment/${id}.${extFromMime(photoEmployment.type)}`;
 
-    const [faceUrl, bodyUrl, idObjectKey] = await Promise.all([
+    const [faceUrl, bodyUrl, idObjectKey, employmentObjectKey] = await Promise.all([
       uploadPublic(
         faceKey,
         Buffer.from(await photoFace.arrayBuffer()),
@@ -156,8 +180,13 @@ export async function POST(request: NextRequest) {
       ),
       uploadPrivate(
         idKey,
-        Buffer.from(await photoId.arrayBuffer()),
-        photoId.type,
+        Buffer.from(await photoIdCard.arrayBuffer()),
+        photoIdCard.type,
+      ),
+      uploadPrivate(
+        employmentKey,
+        Buffer.from(await photoEmployment.arrayBuffer()),
+        photoEmployment.type,
       ),
     ]);
 
@@ -172,25 +201,26 @@ export async function POST(request: NextRequest) {
       .from('signups')
       .insert({
         id,
+        event_session_id: eventSessionId,
         name,
         phone,
         birthdate,
-        participation,
+        gender,
         height_cm: heightCm,
         weight_kg: weightKg,
         mbti,
         photo_face_url: faceUrl,
         photo_body_url: bodyUrl,
         photo_id_key: idObjectKey,
+        photo_employment_key: employmentObjectKey,
         job,
         ideal_tags: idealTags,
         ideal_type_note: idealTypeNote || null,
-        strengths: strengths || null,
         prefer_age: preferAge,
         drink,
         channel,
-        insta: insta || null,
         companion: companion || null,
+        privacy_agreed: privacyAgreed,
         refund_agreed: refundAgreed,
         metadata,
       })
@@ -202,6 +232,7 @@ export async function POST(request: NextRequest) {
         deletePublic(faceKey),
         deletePublic(bodyKey),
         deletePrivate(idKey),
+        deletePrivate(employmentKey),
       ]);
       if (dbError?.code === '23505' && dbError.message.includes('signups_phone_active_uidx')) {
         throw new ValidationError(
@@ -213,15 +244,22 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      const employmentPresignedUrl = await getPrivatePresignedUrl(
+        employmentObjectKey,
+        PRIVATE_PRESIGNED_TTL_SECONDS,
+      );
       const facePhotoMsg = await sendPhoto(faceUrl, { disable_notification: true });
       const bodyPhotoMsg = await sendPhoto(bodyUrl, { disable_notification: true });
+      const employmentPhotoMsg = await sendPhoto(employmentPresignedUrl, {
+        disable_notification: true,
+      });
       const idPresignedUrl = await getPrivatePresignedUrl(
         idObjectKey,
-        ID_PRESIGNED_TTL_SECONDS,
+        PRIVATE_PRESIGNED_TTL_SECONDS,
       );
 
       const record = signup as SignupRecord;
-      const text = formatNotification(record, idPresignedUrl);
+      const text = formatNotification(record, idPresignedUrl, employmentPresignedUrl);
 
       const notifyMsg = await sendMessage(text, {
         parse_mode: 'HTML',
@@ -237,6 +275,7 @@ export async function POST(request: NextRequest) {
           telegram_photo_msg_ids: [
             facePhotoMsg.message_id,
             bodyPhotoMsg.message_id,
+            employmentPhotoMsg.message_id,
           ],
         })
         .eq('id', id);

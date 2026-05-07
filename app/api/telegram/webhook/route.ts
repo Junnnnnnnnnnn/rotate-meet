@@ -28,7 +28,7 @@ const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
 if (!webhookSecret) throw new Error('TELEGRAM_WEBHOOK_SECRET is not set');
 if (!publicBaseUrl) throw new Error('R2_PUBLIC_BASE_URL is not set');
 
-const ID_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
+const PRIVATE_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
 const OPERATOR_CHAT_ID = parseInt(TELEGRAM_CHAT_ID, 10);
 const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
@@ -132,11 +132,14 @@ async function handleCallback(cb: TelegramCallbackQuery): Promise<void> {
       await actionPaid(signupId, notifyMsgId, operator.id, operatorName);
       await answerCallbackQuery(cb.id, '💰 입금 완료 처리됨');
     } else if (action === 'reject') {
-      await actionReject(signupId, notifyMsgId, operatorName);
-      await answerCallbackQuery(cb.id, '✗ 거절 — 데이터 삭제됨');
+      await actionReject(signupId, notifyMsgId, operator.id, operatorName);
+      await answerCallbackQuery(cb.id, '✗ 거절 — 차단 처리됨');
     } else if (action === 'delete_id') {
       await actionDeleteId(signupId, notifyMsgId, operator.id, operatorName);
       await answerCallbackQuery(cb.id, '🗑 신분증 폐기 완료');
+    } else if (action === 'purge') {
+      await actionPurgeAllPhotos(signupId, notifyMsgId, operator.id, operatorName);
+      await answerCallbackQuery(cb.id, '🗑 모든 사진 폐기 완료');
     } else if (action === 'memo') {
       await actionMemoPrompt(signupId, operatorName);
       await answerCallbackQuery(cb.id, '메모를 입력해주세요');
@@ -250,6 +253,7 @@ async function actionPaid(
 async function actionReject(
   signupId: string,
   notifyMsgId: number,
+  operatorId: number,
   operatorName: string,
 ): Promise<void> {
   const { data: signup, error: fetchErr } = await supabaseAdmin
@@ -259,9 +263,7 @@ async function actionReject(
     .single();
   if (fetchErr || !signup) throw new Error(`Signup not found`);
 
-  const s = signup as SignupRecord & {
-    telegram_photo_msg_ids: number[] | null;
-  };
+  const s = signup as SignupRecord;
 
   const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
   const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
@@ -269,37 +271,71 @@ async function actionReject(
     deletePublic(faceKey),
     deletePublic(bodyKey),
     s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
+    s.photo_employment_key ? deletePrivate(s.photo_employment_key) : Promise.resolve(),
   ]);
 
-  const { error: delErr } = await supabaseAdmin
+  const now = new Date().toISOString();
+  const { data: updated, error: updErr } = await supabaseAdmin
     .from('signups')
-    .delete()
-    .eq('id', signupId);
-  if (delErr) throw new Error(`DB delete failed: ${delErr.message}`);
+    .update({
+      status: 'blocked',
+      blocked_at: now,
+      blocked_by_id: operatorId,
+      blocked_by: operatorName,
+      photo_id_key: null,
+      photo_employment_key: null,
+      photos_purged_at: now,
+      photos_purged_by_id: operatorId,
+      photos_purged_by: operatorName,
+    })
+    .eq('id', signupId)
+    .select()
+    .single();
+  if (updErr || !updated) throw new Error(`DB update failed: ${updErr?.message}`);
 
-  const ts = new Date().toISOString();
-  const text = [
-    '❌ <b>거절됨</b>',
-    `ID: <code>${signupId.slice(0, 8)}</code>`,
-    `${escapeHtml(operatorName)} · ${formatTimestamp(ts)}`,
-    '',
-    '이 신청은 거절되어 모든 데이터(DB + 사진)가 삭제되었어요.',
-  ].join('\n');
-  await editMessageText(notifyMsgId, text, {
-    parse_mode: 'HTML',
-    disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [] },
-  });
+  await refreshNotifyMessage(updated as SignupRecord, notifyMsgId);
+}
 
-  if (s.telegram_photo_msg_ids) {
-    for (const photoMsgId of s.telegram_photo_msg_ids) {
-      try {
-        await deleteMessage(photoMsgId);
-      } catch (e) {
-        console.error(`Failed to delete photo msg ${photoMsgId}:`, e);
-      }
-    }
-  }
+async function actionPurgeAllPhotos(
+  signupId: string,
+  notifyMsgId: number,
+  operatorId: number,
+  operatorName: string,
+): Promise<void> {
+  const { data: signup, error: fetchErr } = await supabaseAdmin
+    .from('signups')
+    .select('*')
+    .eq('id', signupId)
+    .single();
+  if (fetchErr || !signup) throw new Error(`Signup not found`);
+
+  const s = signup as SignupRecord;
+
+  const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
+  const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
+  await Promise.allSettled([
+    deletePublic(faceKey),
+    deletePublic(bodyKey),
+    s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
+    s.photo_employment_key ? deletePrivate(s.photo_employment_key) : Promise.resolve(),
+  ]);
+
+  const now = new Date().toISOString();
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from('signups')
+    .update({
+      photo_id_key: null,
+      photo_employment_key: null,
+      photos_purged_at: now,
+      photos_purged_by_id: operatorId,
+      photos_purged_by: operatorName,
+    })
+    .eq('id', signupId)
+    .select()
+    .single();
+  if (updErr || !updated) throw new Error(`DB update failed: ${updErr?.message}`);
+
+  await refreshNotifyMessage(updated as SignupRecord, notifyMsgId);
 }
 
 async function actionDeleteId(
@@ -407,14 +443,21 @@ async function refreshNotifyMessage(
   signup: SignupRecord,
   notifyMsgId: number,
 ): Promise<void> {
-  let presignedUrl: string | null = null;
+  let idUrl: string | null = null;
   if (signup.photo_id_key) {
-    presignedUrl = await getPrivatePresignedUrl(
+    idUrl = await getPrivatePresignedUrl(
       signup.photo_id_key,
-      ID_PRESIGNED_TTL_SECONDS,
+      PRIVATE_PRESIGNED_TTL_SECONDS,
     );
   }
-  const text = formatNotification(signup, presignedUrl);
+  let employmentUrl: string | null = null;
+  if (signup.photo_employment_key) {
+    employmentUrl = await getPrivatePresignedUrl(
+      signup.photo_employment_key,
+      PRIVATE_PRESIGNED_TTL_SECONDS,
+    );
+  }
+  const text = formatNotification(signup, idUrl, employmentUrl);
   await editMessageText(notifyMsgId, text, {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
@@ -436,11 +479,13 @@ async function sendStatus(): Promise<void> {
   let normal = 0;
   let paid = 0;
   let cancelled = 0;
+  let blocked = 0;
   for (const row of rows) {
     if (row.status === 'pending') pending++;
     else if (row.status === 'normal') normal++;
     else if (row.status === 'paid') paid++;
     else if (row.status === 'cancelled') cancelled++;
+    else if (row.status === 'blocked') blocked++;
   }
 
   const lines = [
@@ -452,6 +497,7 @@ async function sendStatus(): Promise<void> {
     `💰 입금 완료: ${paid}건`,
   ];
   if (cancelled > 0) lines.push(`✗ 취소: ${cancelled}건`);
+  if (blocked > 0) lines.push(`❌ 거절(차단): ${blocked}건`);
   await sendMessage(lines.join('\n'), { parse_mode: 'HTML', disable_notification: true });
 }
 
@@ -483,6 +529,7 @@ async function sendList(): Promise<void> {
   const normal = rows.filter((r) => r.status === 'normal');
   const paid = rows.filter((r) => r.status === 'paid');
   const cancelled = rows.filter((r) => r.status === 'cancelled');
+  const blocked = rows.filter((r) => r.status === 'blocked');
 
   const lines: string[] = [];
   lines.push(`📋 <b>신청 현황 (총 ${rows.length}건)</b>`);
@@ -546,6 +593,18 @@ async function sendList(): Promise<void> {
     cancelled.forEach((r) => {
       globalIdx++;
       lines.push(`${globalIdx}. ${escapeHtml(r.name)}`);
+    });
+  }
+
+  if (blocked.length > 0) {
+    lines.push('');
+    lines.push(`❌ <b>거절(차단) (${blocked.length}건)</b> — 같은 번호 재신청 차단됨`);
+    blocked.forEach((r) => {
+      globalIdx++;
+      lines.push(
+        `${globalIdx}. ${escapeHtml(r.name)} · ${escapeHtml(r.phone)}`,
+      );
+      addButton(globalIdx, r.telegram_notify_msg_id);
     });
   }
 
@@ -681,8 +740,9 @@ async function sendHelp(): Promise<void> {
     '<b>각 신청 메시지의 버튼</b>',
     '✓ 확인 — 본인확인 완료 (대기 → 입금 대기)',
     '💰 입금완료 — 입금 확인 (입금 대기 → 참가 확정)',
-    '✗ 거절 — 신청 거절 (DB + R2 사진 모두 삭제)',
+    '✗ 거절 — 차단 처리 (DB raw 보존, R2 사진 4종 삭제, 같은 번호 재신청 차단)',
     '🗑 신분증 폐기 — 신분증 사진만 R2에서 삭제',
+    '🗑 모든 사진 폐기 — 얼굴/전신/신분증/직업인증 4종 일괄 삭제',
     '💬 메모 — 답장(reply)으로 메모 추가',
   ].join('\n');
   await sendMessage(text, { parse_mode: 'HTML', disable_notification: true });

@@ -10,16 +10,18 @@ import {
 } from './steps';
 import type { HeroVariant } from './Landing';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const INITIAL_DATA: FormData = {
+  eventDate: '',
   name: '', phone: '', birthdate: '',
-  participation: '',
+  gender: '',
   height: '', weight: '', mbti: '',
-  photoFace: null, photoBody: null, photoId: null,
-  job: '', idealType: '', strengths: '',
+  photoFace: null, photoBody: null, photoIdCard: null, photoEmployment: null,
+  job: '', idealType: '',
   preferAge: '', drink: '', channel: '',
-  insta: '', companion: '',
+  companion: '',
+  privacyAgreed: false,
   refundAgreed: false,
 };
 
@@ -46,29 +48,30 @@ class SubmitError extends Error {
 
 async function submitToServer(data: FormData, heroVariant: HeroVariant): Promise<void> {
   const fd = new globalThis.FormData();
+  fd.append('event_session_id', data.eventDate);
   fd.append('name', data.name);
   fd.append('phone', data.phone);
   fd.append('birthdate', data.birthdate);
-  fd.append('participation', data.participation);
+  fd.append('gender', data.gender);
   fd.append('height', String(data.height));
   fd.append('weight', String(data.weight));
   fd.append('mbti', data.mbti);
   fd.append('job', data.job);
   fd.append('ideal_tags', JSON.stringify(data.idealTagsArr ?? []));
   fd.append('ideal_type_note', data.idealTypeNote ?? '');
-  fd.append('strengths', data.strengths);
   fd.append('prefer_age', data.preferAge);
   fd.append('drink', data.drink);
   fd.append('channel', data.channel);
-  fd.append('insta', data.insta);
   fd.append('companion', data.companion);
+  fd.append('privacy_agreed', String(data.privacyAgreed));
   fd.append('refund_agreed', String(data.refundAgreed));
   fd.append('hero_variant', heroVariant);
 
-  const photos: Array<['photoFace' | 'photoBody' | 'photoId', string | null]> = [
+  const photos: Array<['photoFace' | 'photoBody' | 'photoIdCard' | 'photoEmployment', string | null]> = [
     ['photoFace', data.photoFace],
     ['photoBody', data.photoBody],
-    ['photoId', data.photoId],
+    ['photoIdCard', data.photoIdCard],
+    ['photoEmployment', data.photoEmployment],
   ];
   for (const [key, dataUrl] of photos) {
     if (!dataUrl) throw new SubmitError(`${key} 사진이 누락되었어요`);
@@ -92,6 +95,7 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [duplicatePhoneOpen, setDuplicatePhoneOpen] = useState(false);
+  const [blockedPhoneOpen, setBlockedPhoneOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -102,34 +106,39 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
   const validateStep = (s: number): FormErrors => {
     const e: FormErrors = {};
     if (s === 1) {
+      if (!data.eventDate) e.eventDate = '참여 날짜를 선택해주세요';
+    }
+    if (s === 2) {
       if (!data.name.trim()) e.name = '이름을 입력해주세요';
       if (!data.phone.trim()) e.phone = '연락처를 입력해주세요';
       else if (!/^01[016789]-?\d{3,4}-?\d{4}$/.test(data.phone.replace(/\s/g, '')))
         e.phone = '010-0000-0000 형식으로 입력해주세요';
       if (!data.birthdate.trim()) e.birthdate = '생년월일을 입력해주세요';
     }
-    if (s === 2) {
-      if (!data.participation) e.participation = '선택해주세요';
-    }
     if (s === 3) {
+      if (!data.gender) e.gender = '성별을 선택해주세요';
+    }
+    if (s === 4) {
       if (!data.height) e.height = '키를 입력해주세요';
       if (!data.weight) e.weight = '몸무게를 입력해주세요';
       if (!data.mbti) e.mbti = 'MBTI를 선택해주세요';
     }
-    if (s === 4) {
+    if (s === 5) {
       if (!data.photoFace) e.photoFace = '얼굴 사진은 필수예요';
       if (!data.photoBody) e.photoBody = '전신 사진은 필수예요';
-      if (!data.photoId) e.photoId = '신분증 사진은 필수예요';
-    }
-    if (s === 5) {
-      if (!data.job.trim()) e.job = '직업을 입력해주세요';
+      if (!data.photoIdCard) e.photoIdCard = '신분증 사진은 필수예요';
+      if (!data.photoEmployment) e.photoEmployment = '직업 인증 자료는 필수예요';
     }
     if (s === 6) {
+      if (!data.job.trim()) e.job = '직업을 입력해주세요';
+    }
+    if (s === 7) {
       if (!data.preferAge) e.preferAge = '선택해주세요';
       if (!data.drink) e.drink = '선택해주세요';
       if (!data.channel) e.channel = '선택해주세요';
     }
-    if (s === 8) {
+    if (s === 9) {
+      if (!data.privacyAgreed) e.privacyAgreed = '개인정보 수집·이용 동의가 필요해요';
       if (!data.refundAgreed) e.refundAgreed = '환불 규정 동의가 필요해요';
     }
     return e;
@@ -152,6 +161,8 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
       } catch (err) {
         if (err instanceof SubmitError && err.code === 'duplicate_phone') {
           setDuplicatePhoneOpen(true);
+        } else if (err instanceof SubmitError && err.code === 'phone_blocked') {
+          setBlockedPhoneOpen(true);
         } else {
           setSubmitError(err instanceof Error ? err.message : '제출 중 오류가 발생했어요');
           setShakeKey((k) => k + 1);
@@ -248,10 +259,42 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
                 setSubmitError(null);
                 setErrors({});
                 setDirection('backward');
-                setStep(1);
+                setStep(2);
               }}
             >
               전화번호 수정하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {blockedPhoneOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <h3 className="modal-title">신청이 제한된 연락처예요</h3>
+            <p className="modal-message">
+              이전에 거절된 신청이 있어요.<br />
+              이 번호로는 다시 신청하실 수 없어요.
+            </p>
+            <button
+              type="button"
+              className="modal-button"
+              onClick={() => {
+                setBlockedPhoneOpen(false);
+                setSubmitError(null);
+                setErrors({});
+                setDirection('backward');
+                setStep(2);
+              }}
+            >
+              전화번호 확인하기
             </button>
           </div>
         </div>

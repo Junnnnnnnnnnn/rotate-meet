@@ -23,9 +23,9 @@ export default function Landing({ onApply, heroVariant }: LandingProps) {
         <h2 className="sec-title">이런 분들을<br />찾고 있어요</h2>
         <div className="target-list">
           {([
-            ['01', '결혼에 진심인 분', '가벼운 만남이 아닌, 평생 함께할 사람을 찾는 분'],
-            ['02', '2030 결혼 적령기', '91~00년생 솔로'],
-            ['03', '진짜 인연을 찾고 싶은 분', '여러 사람과 짧지만 밀도 있게 대화하고 싶은 분'],
+            ['01', '연애를 하고 싶으신 분', '스쳐지나가는 인연이 아닌 진짜 인연을 찾아 드립니다.'],
+            ['02', '20대 ~ 30대 사회인이라면 누구나!', '솔로인 91~00년생 누구나 환영합니다.'],
+            ['03', '대화가 잘통하는 인연을 찾는 분', '같은 취미를 가진 사람과 깊은 대화를 나눠보세요.'],
           ] as const).map(([n, t, s]) => (
             <div className="target-row" key={n}>
               <span className="target-num">{n}</span>
@@ -44,7 +44,7 @@ export default function Landing({ onApply, heroVariant }: LandingProps) {
         <div className="how-list">
           {([
             ['1', '한 자리에 모이기', '남녀 동수가 한 카페에 모여요'],
-            ['2', '한 사람씩, 5분 대화', '5분이 지나면 자리를 바꿔요'],
+            ['2', '한 사람씩, 10분 대화', '10분이 지나면 자리를 바꿔요'],
             ['3', '모두와 대화 후, 매칭', '마음에 든 사람을 적어 제출'],
           ] as const).map(([n, t, s]) => (
             <div className="how-step" key={n}>
@@ -79,23 +79,29 @@ export default function Landing({ onApply, heroVariant }: LandingProps) {
 function HeroPoster(_props: HeroProps) {
   return (
     <section className="hero hero--poster">
-      <h1 className="hero-title">
-        <span className="typed-line l1">제 1회</span>
-        <span className="typed-line l2">로테이션 소개팅</span>
-        <span className="typed-line l3">참 가 자 모 집</span>
-      </h1>
-
-      <div className="date-pill">2026.05.23 (토) 신논현역 인근 카페</div>
-
-      <div className="info-list">
-        <div className="info-row"><span className="info-key">모집대상</span>: 솔로인 91년 ~ 00년생</div>
-        <div className="info-row"><span className="info-key">참가비</span>: 30,000원 <span style={{ color: 'var(--coral)' }}>(첫 개최기념 10% 특별할인)</span></div>
-        <div className="info-row"><span className="info-key">참가방법</span>: 아래 신청서 작성</div>
+      <div className="poster-top">
+        <svg className="poster-ekg poster-ekg--left" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="30" x2="200" y2="30" stroke="#FF4F3D" strokeWidth="1.5" />
+        </svg>
+        <div className="poster-brand">썸개팅</div>
+        <svg className="poster-ekg poster-ekg--right" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+          <polyline
+            points="0,30 92,30 93.5,24 95,36 96.5,30 96.9,30 98.4,20 99.9,40 101.4,30 104.2,-2 109.2,62 114.2,12 119.2,42 122.7,30 122.9,30 124.4,24 125.9,36 127.4,30 200,30"
+            fill="none"
+            stroke="#FF4F3D"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
 
-      <div className="ill-wrap">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/couple-cutout.png" alt="couple" />
+      <div className="poster-block">
+        <h1 className="poster-title">
+          <span className="poster-title-coral">로테이션 소개팅</span>
+          <span className="poster-title-black">참 가 신 청</span>
+        </h1>
+        <p className="poster-sub">참가를 원하시는 경우 아래 신청서를 작성해주세요</p>
       </div>
     </section>
   );

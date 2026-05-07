@@ -1,4 +1,4 @@
-@import url('./colors_and_type.css');
+@import url('colors_and_type.css');
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -27,9 +27,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-@media (max-width: 600px) {
-  .frame { max-width: 100%; }
-}
 
 /* ====== Landing ====== */
 .landing { display: flex; flex-direction: column; }
@@ -51,8 +48,91 @@ body {
 }
 
 /* HERO — POSTER */
+/* HERO — POSTER (matches reference photo: 썸개팅 brand row + EKG + giant title) */
 .hero { padding: 36px 26px 24px; position: relative; }
-.hero--poster { background: var(--coral-tint); }
+.hero--poster {
+  background: #FCE7E1;
+  padding: 24px 16px 16px;
+  min-height: 290px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.poster-block {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.poster-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 -16px 28px;
+  padding: 0;
+}
+.poster-brand {
+  font-family: var(--font-display, var(--font-sans));
+  font-weight: 900;
+  font-size: 19px;
+  color: #FF4F3D;
+  letter-spacing: -0.05em;
+  font-style: italic;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transform: skewX(-8deg);
+  padding: 0 4px;
+}
+.poster-ekg {
+  flex: 1;
+  height: 36px;
+  display: block;
+  min-width: 0;
+  overflow: visible;
+}
+
+.poster-title {
+  margin: 0;
+  display: block;
+  line-height: 0.95;
+  text-align: center;
+  width: 100%;
+  padding: 0;
+}
+.poster-title-coral {
+  font-weight: 700;
+  font-size: 52px;
+  letter-spacing: -0.04em;
+  color: #FF4F3D;
+  display: block;
+  text-align: justify;
+  text-align-last: justify;
+  white-space: normal;
+  width: 100%;
+}
+.poster-title-black {
+  font-weight: 900;
+  font-size: 70px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  display: block;
+  text-align: justify;
+  text-align-last: justify;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.poster-sub {
+  margin: 14px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
 .hero-title {
   font-weight: 900;
   font-size: 44px;
@@ -69,7 +149,7 @@ body {
 
 .date-pill {
   display: inline-block;
-  margin-top: 16px;
+  margin-top: 22px;
   background: var(--coral);
   color: #fff;
   font-weight: 800;
@@ -376,6 +456,14 @@ body {
   margin-bottom: 8px;
   letter-spacing: -0.01em;
 }
+.field-helper {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: -4px;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
 .req { color: var(--coral); margin-left: 3px; }
 .opt {
   color: var(--ink-subtle);
@@ -478,6 +566,91 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   color: var(--ink-muted);
   margin-top: 2px;
 }
+
+/* radio-card with price aside */
+.radio-card--price { padding: 14px 16px; }
+.radio-card-body { flex: 1; min-width: 0; }
+.radio-card-aside { display: flex; align-items: center; }
+.price-pill {
+  display: inline-flex; align-items: center;
+  padding: 6px 10px;
+  background: var(--coral-tint);
+  color: var(--coral);
+  border: 1px dashed var(--coral-soft);
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.radio-card.selected .price-pill {
+  background: var(--coral);
+  color: var(--paper);
+  border-color: var(--coral);
+  border-style: solid;
+}
+.price-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #FFF7F2;
+  border: 1px solid var(--coral-soft);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+.price-note strong { color: var(--coral); font-weight: 800; }
+.price-strike {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: var(--ink-muted);
+  opacity: .75;
+}
+.id-card {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.id-card .id-upload-empty,
+.id-card .id-upload {
+  margin: 0 !important;
+}
+.id-card-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-muted);
+  letter-spacing: -0.01em;
+}
+.id-card-note strong { color: var(--ink); font-weight: 700; }
+/* radio-card date variant */
+.radio-card--date {
+  padding: 18px 20px;
+}
+.radio-card--date .date-body { padding: 2px 0; }
+.date-line-1 {
+  font-size: 17px; font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.date-line-1 .date-dow {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+.date-line-2 {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink-muted);
+  letter-spacing: -0.01em;
+}
+.radio-card--date.selected .date-line-2 { color: var(--ink); }
 
 /* ====== Wheel picker ====== */
 .wheel { position: relative; }
@@ -608,6 +781,7 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  white-space: pre-line;
 }
 
 /* ====== Photo upload ====== */
@@ -807,6 +981,44 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   letter-spacing: -0.01em;
   flex-shrink: 0;
 }
+
+/* agree section (privacy + refund) */
+.agree-section { margin-bottom: 24px; }
+.agree-section:last-child { margin-bottom: 0; }
+.agree-section-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+/* privacy card */
+.privacy-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.privacy-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+.privacy-key {
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+.privacy-val {
+  color: var(--ink);
+  font-weight: 500;
+}
+.privacy-val strong { color: var(--coral); font-weight: 800; }
 
 /* refund */
 .refund-card {

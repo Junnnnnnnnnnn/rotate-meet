@@ -9,24 +9,25 @@ import {
 } from 'react';
 
 export type FormData = {
+  eventDate: string;
   name: string;
   phone: string;
   birthdate: string;
-  participation: string;
+  gender: '' | 'male' | 'female';
   height: string | number;
   weight: string | number;
   mbti: string;
   photoFace: string | null;
   photoBody: string | null;
-  photoId: string | null;
+  photoIdCard: string | null;
+  photoEmployment: string | null;
   job: string;
   idealType: string;
-  strengths: string;
   preferAge: string;
   drink: string;
   channel: string;
-  insta: string;
   companion: string;
+  privacyAgreed: boolean;
   refundAgreed: boolean;
   idealTagsArr?: string[];
   idealTypeNote?: string;
@@ -80,7 +81,46 @@ export function ShakeWrap({ shakeKey, children }: ShakeWrapProps) {
   return <div className="shake-wrap" ref={ref}>{children}</div>;
 }
 
-function Step1({ data, update, errors }: StepProps) {
+export const EVENT_SESSIONS = [
+  {
+    v: '2025-05-23-sinchon',
+    date: '5월 23일',
+    dow: '토요일',
+    venue: '신촌점',
+    time: '오후 7시',
+  },
+] as const;
+
+function Step1Date({ data, update, errors }: StepProps) {
+  return (
+    <>
+      <StepHeader title="참여 날짜를 선택해주세요" helper="새 세션이 열리면 이 목록에 추가돼요." />
+      <div className="radio-cards">
+        {EVENT_SESSIONS.map((s) => (
+          <label
+            key={s.v}
+            className={`radio-card radio-card--date ${data.eventDate === s.v ? 'selected' : ''}`}
+            onClick={() => update({ eventDate: s.v })}
+          >
+            <span className="ring" />
+            <div className="radio-card-body date-body">
+              <div className="date-line-1">
+                {s.date}
+                <span className="date-dow">({s.dow})</span>
+              </div>
+              <div className="date-line-2">
+                {s.venue} · {s.time}
+              </div>
+            </div>
+          </label>
+        ))}
+      </div>
+      <ErrText msg={errors.eventDate} />
+    </>
+  );
+}
+
+function Step2Identity({ data, update, errors }: StepProps) {
   const onPhone = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 11);
     let f = digits;
@@ -134,36 +174,45 @@ function Step1({ data, update, errors }: StepProps) {
   );
 }
 
-function Step2({ data, update, errors }: StepProps) {
-  const opts = [
-    { v: 'new', t: '신규 참가', s: '로테이션 소개팅이 처음이에요' },
-    { v: 'repeat', t: '재참가', s: '이전에 참가한 적 있어요' },
-  ];
+const GENDER_OPTIONS = [
+  { v: 'male', t: '남자', price: '35,000원', discounted: '30,000원' },
+  { v: 'female', t: '여자', price: '25,000원', discounted: '20,000원' },
+] as const;
+
+function Step3Gender({ data, update, errors }: StepProps) {
   return (
     <>
-      <StepHeader title="처음이세요?" helper="재참가자는 매칭 알고리즘에 반영해요." />
+      <StepHeader title="성별을 선택해주세요" helper="성별에 따라 참가비가 달라요." />
       <div className="radio-cards">
-        {opts.map((o) => (
+        {GENDER_OPTIONS.map((o) => (
           <label
             key={o.v}
-            className={`radio-card ${data.participation === o.v ? 'selected' : ''}`}
-            onClick={() => update({ participation: o.v })}
+            className={`radio-card radio-card--price ${data.gender === o.v ? 'selected' : ''}`}
+            onClick={() => update({ gender: o.v })}
           >
             <span className="ring" />
-            <div>
+            <div className="radio-card-body">
               <div className="radio-main">{o.t}</div>
-              <div className="radio-sub">{o.s}</div>
+              <div className="radio-sub">
+                참가비 · <s className="price-strike">{o.price}</s>
+              </div>
+            </div>
+            <div className="radio-card-aside">
+              <span className="price-pill">{o.discounted}</span>
             </div>
           </label>
         ))}
       </div>
-      <ErrText msg={errors.participation} />
+      <div className="price-note">
+        🎉 <strong>첫 개최 기념 5,000원 할인</strong> — 남자 30,000원 · 여자 20,000원
+      </div>
+      <ErrText msg={errors.gender} />
     </>
   );
 }
 
 const MBTI_LIST = [
-  { code: 'ISTJ', desc: '청렴결백한 논리주의자' },
+  { code: 'ISTJ', desc: '청렴결백한\n논리주의자' },
   { code: 'ISFJ', desc: '용감한 수호자' },
   { code: 'INFJ', desc: '선의의 옹호자' },
   { code: 'INTJ', desc: '용의주도한 전략가' },
@@ -171,13 +220,13 @@ const MBTI_LIST = [
   { code: 'ISFP', desc: '호기심 많은 예술가' },
   { code: 'INFP', desc: '열정적인 중재자' },
   { code: 'INTP', desc: '논리적인 사색가' },
-  { code: 'ESTP', desc: '모험을 즐기는 사업가' },
+  { code: 'ESTP', desc: '모험을 즐기는\n사업가' },
   { code: 'ESFP', desc: '자유로운 영혼' },
   { code: 'ENFP', desc: '재기발랄한 활동가' },
   { code: 'ENTP', desc: '뜨거운 논쟁가' },
   { code: 'ESTJ', desc: '엄격한 관리자' },
   { code: 'ESFJ', desc: '사교적인 외교관' },
-  { code: 'ENFJ', desc: '정의로운 사회운동가' },
+  { code: 'ENFJ', desc: '정의로운\n사회운동가' },
   { code: 'ENTJ', desc: '대담한 통솔자' },
 ];
 
@@ -188,7 +237,7 @@ function mbtiColor(code: string): string {
   return '#E8A93C';
 }
 
-function Step3({ data, update, errors, shakeKey }: StepProps) {
+function Step4Body({ data, update, errors }: StepProps) {
   return (
     <>
       <StepHeader title="키와 몸무게를 알려주세요" helper="매칭 안내에만 활용되며 외부 공개되지 않아요." />
@@ -201,7 +250,6 @@ function Step3({ data, update, errors, shakeKey }: StepProps) {
           max={210}
           onChange={(v) => update({ height: v })}
           err={errors.height}
-          shakeKey={shakeKey}
         />
         <WheelPicker
           label="몸무게 (kg)"
@@ -210,7 +258,6 @@ function Step3({ data, update, errors, shakeKey }: StepProps) {
           max={130}
           onChange={(v) => update({ weight: v })}
           err={errors.weight}
-          shakeKey={shakeKey}
         />
       </div>
 
@@ -243,10 +290,9 @@ type WheelPickerProps = {
   max: number;
   onChange: (v: number) => void;
   err?: string;
-  shakeKey: number;
 };
 
-function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelPickerProps) {
+function WheelPicker({ label, value, min, max, onChange, err }: WheelPickerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const userInteracted = useRef(false);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -295,10 +341,7 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelP
   const showPlaceholder = !hasValue && !touched;
 
   return (
-    <div
-      className={`wheel ${showPlaceholder ? 'wheel--unset' : ''} ${err ? 'err shake' : ''}`}
-      key={`${err ? 'e' : 'ok'}-${shakeKey || 0}`}
-    >
+    <div className={`wheel ${showPlaceholder ? 'wheel--unset' : ''} ${err ? 'err' : ''}`}>
       <div className="wheel-label">{label}</div>
       <div className="wheel-window">
         <div className="wheel-cursor" />
@@ -330,7 +373,7 @@ function WheelPicker({ label, value, min, max, onChange, err, shakeKey }: WheelP
   );
 }
 
-type PhotoKey = 'photoFace' | 'photoBody' | 'photoId';
+type PhotoKey = 'photoFace' | 'photoBody' | 'photoIdCard' | 'photoEmployment';
 
 async function compressImageFile(file: File, maxDim = 1600, quality = 0.85): Promise<string> {
   const url = URL.createObjectURL(file);
@@ -368,7 +411,7 @@ async function compressImageFile(file: File, maxDim = 1600, quality = 0.85): Pro
   }
 }
 
-function Step4({ data, update, errors }: StepProps) {
+function Step5Photos({ data, update, errors }: StepProps) {
   const [fileErr, setFileErr] = useState<Partial<Record<PhotoKey, string>>>({});
   const [processing, setProcessing] = useState<Partial<Record<PhotoKey, boolean>>>({});
 
@@ -414,17 +457,31 @@ function Step4({ data, update, errors }: StepProps) {
         />
       </div>
 
-      <div className="disclaimer" style={{ marginTop: '18px' }}>
-        <strong>신분증 사진</strong>도 업로드해주세요. <strong>주민번호 뒷자리는 가려서</strong> 촬영해주세요. 본인 확인용으로만 사용되며 행사 후 운영팀이 직접 폐기합니다.
+      <div className="id-card">
+        <IdCardUpload
+          data={data.photoIdCard}
+          onSelect={(f) => onFile('photoIdCard', f)}
+          onClear={() => { update({ photoIdCard: null }); setFileErr((p) => ({ ...p, photoIdCard: undefined })); }}
+          err={fileErr.photoIdCard ?? errors.photoIdCard}
+          processing={processing.photoIdCard}
+        />
+        <div className="id-card-note">
+          <strong>주민번호 뒷자리는 가려서</strong> 촬영해주세요. 본인 확인용으로만 사용되며 행사 후 즉시 폐기됩니다.
+        </div>
       </div>
 
-      <IdUpload
-        data={data.photoId}
-        onSelect={(f) => onFile('photoId', f)}
-        onClear={() => { update({ photoId: null }); setFileErr((p) => ({ ...p, photoId: undefined })); }}
-        err={fileErr.photoId ?? errors.photoId}
-        processing={processing.photoId}
-      />
+      <div className="id-card">
+        <EmploymentUpload
+          data={data.photoEmployment}
+          onSelect={(f) => onFile('photoEmployment', f)}
+          onClear={() => { update({ photoEmployment: null }); setFileErr((p) => ({ ...p, photoEmployment: undefined })); }}
+          err={fileErr.photoEmployment ?? errors.photoEmployment}
+          processing={processing.photoEmployment}
+        />
+        <div className="id-card-note">
+          인증 가능한 자료라면 무엇이든 괜찮아요 — 예시) <strong>재직증명서, 명함, 회사명으로 입금된 내역, 사업자등록증</strong> 등. 행사 후 즉시 폐기됩니다.
+        </div>
+      </div>
     </>
   );
 }
@@ -488,7 +545,7 @@ function PhotoUpload({ label, hint, data, onSelect, onClear, err, processing, ic
   );
 }
 
-type IdUploadProps = {
+type IdSlotProps = {
   data: string | null;
   onSelect: (file: File | undefined) => void;
   onClear: () => void;
@@ -496,7 +553,7 @@ type IdUploadProps = {
   processing?: boolean;
 };
 
-function IdUpload({ data, onSelect, onClear, err, processing }: IdUploadProps) {
+function IdCardUpload({ data, onSelect, onClear, err, processing }: IdSlotProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   if (data) {
     return (
@@ -504,16 +561,11 @@ function IdUpload({ data, onSelect, onClear, err, processing }: IdUploadProps) {
         <div className="id-image-wrap">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={data} alt="신분증" className="id-image" />
-          <div className="id-mask">
-            <div className="id-mask-label">자동 마스킹</div>
-            <div className="id-mask-line">●●●●●●</div>
-            <div className="id-mask-tag">뒷자리 보호</div>
-          </div>
         </div>
         <div className="id-meta">
           <div>
             <div className="id-status"><span className="dot"></span> 본인확인 대기</div>
-            <div className="id-status-sub">행사 후 운영팀이 폐기합니다</div>
+            <div className="id-status-sub">행사 후 즉시 폐기됩니다</div>
           </div>
           <button type="button" className="upload-clear" onClick={onClear}>변경</button>
         </div>
@@ -522,7 +574,7 @@ function IdUpload({ data, onSelect, onClear, err, processing }: IdUploadProps) {
   }
   if (processing) {
     return (
-      <div className="id-upload-empty id-upload-empty--processing" style={{ margin: '13px 0px 0px' }}>
+      <div className="id-upload-empty id-upload-empty--processing">
         <div className="upload-spinner" />
         <div>
           <div className="upload-label">처리 중...</div>
@@ -535,14 +587,68 @@ function IdUpload({ data, onSelect, onClear, err, processing }: IdUploadProps) {
       <div
         className={`id-upload-empty ${err ? 'err' : ''}`}
         onClick={() => inputRef.current?.click()}
-        style={{ margin: '13px 0px 0px' }}
       >
         <div className="upload-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
         </div>
         <div>
-          <div className="upload-label">신분증 (뒷자리 가림)</div>
-          <div className="upload-hint">탭하여 업로드 · 자동 마스킹</div>
+          <div className="upload-label">신분증</div>
+          <div className="upload-hint">탭하여 업로드</div>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => onSelect(e.target.files?.[0])}
+        />
+      </div>
+      <ErrText msg={err} />
+    </>
+  );
+}
+
+function EmploymentUpload({ data, onSelect, onClear, err, processing }: IdSlotProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  if (data) {
+    return (
+      <div className="id-upload id-upload--filled">
+        <div className="id-image-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data} alt="직업 인증" className="id-image" />
+        </div>
+        <div className="id-meta">
+          <div>
+            <div className="id-status"><span className="dot"></span> 직업 인증 대기</div>
+            <div className="id-status-sub">행사 후 즉시 폐기됩니다</div>
+          </div>
+          <button type="button" className="upload-clear" onClick={onClear}>변경</button>
+        </div>
+      </div>
+    );
+  }
+  if (processing) {
+    return (
+      <div className="id-upload-empty id-upload-empty--processing">
+        <div className="upload-spinner" />
+        <div>
+          <div className="upload-label">처리 중...</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div
+        className={`id-upload-empty ${err ? 'err' : ''}`}
+        onClick={() => inputRef.current?.click()}
+      >
+        <div className="upload-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B5B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="13" y2="17" /></svg>
+        </div>
+        <div>
+          <div className="upload-label">직업 인증 자료</div>
+          <div className="upload-hint">재직증명서 · 명함 · 사업자등록증 등</div>
         </div>
         <input
           ref={inputRef}
@@ -563,7 +669,7 @@ const IDEAL_TAGS = [
   '센스있는', '자상함', '리더십', '겸손함',
 ];
 
-function Step5({ data, update, errors }: StepProps) {
+function Step6About({ data, update, errors }: StepProps) {
   const [tags, setTags] = useState<string[]>(() => data.idealTagsArr || []);
 
   const toggleTag = (t: string) => {
@@ -625,17 +731,6 @@ function Step5({ data, update, errors }: StepProps) {
           placeholder="더 적고 싶은 게 있다면 자유롭게..."
         />
       </div>
-
-      <div className="field">
-        <label className="field-label">본인의 장점 <span className="opt">(선택)</span></label>
-        <textarea
-          className="text-input"
-          rows={3}
-          value={data.strengths}
-          onChange={(e) => update({ strengths: e.target.value })}
-          placeholder="다른 사람이 알아봐줬으면 하는 매력"
-        />
-      </div>
     </>
   );
 }
@@ -647,15 +742,17 @@ type ChipFieldProps = {
   onChange: (v: string) => void;
   required?: boolean;
   err?: string;
+  helper?: string;
 };
 
-function ChipField({ label, options, value, onChange, required, err }: ChipFieldProps) {
+function ChipField({ label, options, value, onChange, required, err, helper }: ChipFieldProps) {
   return (
     <div className="field">
       <label className="field-label">
         {label}
         {required && <span className="req">*</span>}
       </label>
+      {helper && <div className="field-helper">{helper}</div>}
       <div className="chip-group">
         {options.map((o) => (
           <button
@@ -673,7 +770,7 @@ function ChipField({ label, options, value, onChange, required, err }: ChipField
   );
 }
 
-function Step6({ data, update, errors }: StepProps) {
+function Step7Pref({ data, update, errors }: StepProps) {
   return (
     <>
       <StepHeader title="몇 가지만 더요" helper="취향에 맞는 자리를 준비할게요." />
@@ -691,7 +788,8 @@ function Step6({ data, update, errors }: StepProps) {
         label="마실 음료"
         required
         err={errors.drink}
-        options={['아메리카노', '라떼', '아이스티', '탄산수']}
+        helper="음료는 모두 아이스로 제공됩니다"
+        options={['아메리카노', '아이스티', '캐모마일티']}
         value={data.drink}
         onChange={(v) => update({ drink: v })}
       />
@@ -708,19 +806,10 @@ function Step6({ data, update, errors }: StepProps) {
   );
 }
 
-function Step7({ data, update }: StepProps) {
+function Step8Companion({ data, update }: StepProps) {
   return (
     <>
-      <StepHeader title="마지막으로 두 가지만" helper="선택 항목이지만, 적어주시면 큰 도움이 돼요." />
-      <div className="field">
-        <label className="field-label">인스타 ID <span className="opt">(선택)</span></label>
-        <input
-          className="text-input"
-          value={data.insta}
-          onChange={(e) => update({ insta: e.target.value })}
-          placeholder="@아이디"
-        />
-      </div>
+      <StepHeader title="마지막으로 한 가지만" helper="선택 항목이지만, 적어주시면 큰 도움이 돼요." />
       <div className="field">
         <label className="field-label">동반 참석자 <span className="opt">(선택)</span></label>
         <textarea
@@ -739,40 +828,84 @@ function Step7({ data, update }: StepProps) {
   );
 }
 
-function Step8({ data, update, errors }: StepProps) {
+function Step9Refund({ data, update, errors }: StepProps) {
   return (
     <>
-      <StepHeader title="환불 규정에 동의해주세요" helper="아래 내용을 꼭 확인해주세요." />
-      <div className="refund-card">
-        <div className="refund-row"><span className="refund-when">행사 7일 전까지</span><span className="refund-rate full">전액 환불</span></div>
-        <div className="refund-row"><span className="refund-when">행사 3-6일 전</span><span className="refund-rate half">50% 환불</span></div>
-        <div className="refund-row"><span className="refund-when">행사 2일 전 이후</span><span className="refund-rate none">환불 불가</span></div>
-        <div className="refund-row"><span className="refund-when">본인 확인 실패 시</span><span className="refund-rate none">참가 불가</span></div>
+      <StepHeader title="신청 전 두 가지만 확인해주세요" helper="아래 내용을 꼭 확인하시고 동의해주세요." />
+
+      <div className="agree-section">
+        <div className="agree-section-title">1. 개인정보 수집·이용 동의</div>
+        <div className="privacy-card">
+          <div className="privacy-row">
+            <div className="privacy-key">수집 항목</div>
+            <div className="privacy-val">
+              이름, 연락처, 생년월일, 성별, 키·몸무게, MBTI, 직업, 이상형, 선호 정보, 동반자 정보, 사진(얼굴·전신·신분증·직업 인증), 알게된 경로
+            </div>
+          </div>
+          <div className="privacy-row">
+            <div className="privacy-key">이용 목적</div>
+            <div className="privacy-val">참가자 매칭, 본인·직업 확인, 행사 운영 안내</div>
+          </div>
+          <div className="privacy-row">
+            <div className="privacy-key">보유 기간</div>
+            <div className="privacy-val">
+              신분증·직업 인증 사진은 <strong>행사 종료 즉시 폐기</strong>, 그 외 정보는 행사 종료 후 6개월간 보관 후 파기
+            </div>
+          </div>
+          <div className="privacy-row">
+            <div className="privacy-key">거부 권리</div>
+            <div className="privacy-val">동의를 거부하실 수 있으며, 거부 시 참가 신청이 불가합니다.</div>
+          </div>
+        </div>
+
+        <label
+          className={`check-row ${data.privacyAgreed ? 'checked' : ''} ${errors.privacyAgreed ? 'err' : ''}`}
+          onClick={() => update({ privacyAgreed: !data.privacyAgreed })}
+        >
+          <span className="check-box">
+            {data.privacyAgreed && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            )}
+          </span>
+          <div className="check-text">개인정보 수집·이용에 동의합니다</div>
+        </label>
+        <ErrText msg={errors.privacyAgreed} />
       </div>
 
-      <label
-        className={`check-row ${data.refundAgreed ? 'checked' : ''} ${errors.refundAgreed ? 'err' : ''}`}
-        onClick={() => update({ refundAgreed: !data.refundAgreed })}
-      >
-        <span className="check-box">
-          {data.refundAgreed && (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-          )}
-        </span>
-        <div className="check-text">환불 규정을 확인했고, 동의합니다</div>
-      </label>
-      <ErrText msg={errors.refundAgreed} />
+      <div className="agree-section">
+        <div className="agree-section-title">2. 환불 규정 동의</div>
+        <div className="refund-card">
+          <div className="refund-row"><span className="refund-when">행사 7일 전까지</span><span className="refund-rate full">전액 환불</span></div>
+          <div className="refund-row"><span className="refund-when">행사 3-6일 전</span><span className="refund-rate half">50% 환불</span></div>
+          <div className="refund-row"><span className="refund-when">행사 2일 전 이후</span><span className="refund-rate none">환불 불가</span></div>
+          <div className="refund-row"><span className="refund-when">본인 확인 실패 시</span><span className="refund-rate none">참가 불가</span></div>
+        </div>
+
+        <label
+          className={`check-row ${data.refundAgreed ? 'checked' : ''} ${errors.refundAgreed ? 'err' : ''}`}
+          onClick={() => update({ refundAgreed: !data.refundAgreed })}
+        >
+          <span className="check-box">
+            {data.refundAgreed && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            )}
+          </span>
+          <div className="check-text">환불 규정을 확인했고, 동의합니다</div>
+        </label>
+        <ErrText msg={errors.refundAgreed} />
+      </div>
     </>
   );
 }
 
 export const STEP_COMPONENTS: Record<number, ComponentType<StepProps>> = {
-  1: Step1,
-  2: Step2,
-  3: Step3,
-  4: Step4,
-  5: Step5,
-  6: Step6,
-  7: Step7,
-  8: Step8,
+  1: Step1Date,
+  2: Step2Identity,
+  3: Step3Gender,
+  4: Step4Body,
+  5: Step5Photos,
+  6: Step6About,
+  7: Step7Pref,
+  8: Step8Companion,
+  9: Step9Refund,
 };
