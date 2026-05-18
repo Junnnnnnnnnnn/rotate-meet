@@ -10,7 +10,7 @@ import {
 } from './steps';
 import type { HeroVariant } from './Landing';
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 8;
 
 const INITIAL_DATA: FormData = {
   eventDate: '',
@@ -114,6 +114,7 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
       else if (!/^01[016789]-?\d{3,4}-?\d{4}$/.test(data.phone.replace(/\s/g, '')))
         e.phone = '010-0000-0000 형식으로 입력해주세요';
       if (!data.birthdate.trim()) e.birthdate = '생년월일을 입력해주세요';
+      if (!data.job.trim()) e.job = '직업을 입력해주세요';
     }
     if (s === 3) {
       if (!data.gender) e.gender = '성별을 선택해주세요';
@@ -130,14 +131,13 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
       if (!data.photoEmployment) e.photoEmployment = '직업 인증 자료는 필수예요';
     }
     if (s === 6) {
-      if (!data.job.trim()) e.job = '직업을 입력해주세요';
+      if (!data.preferAge) e.preferAge = '선택해주세요';
     }
     if (s === 7) {
-      if (!data.preferAge) e.preferAge = '선택해주세요';
       if (!data.drink) e.drink = '선택해주세요';
       if (!data.channel) e.channel = '선택해주세요';
     }
-    if (s === 9) {
+    if (s === 8) {
       if (!data.privacyAgreed) e.privacyAgreed = '개인정보 수집·이용 동의가 필요해요';
       if (!data.refundAgreed) e.refundAgreed = '환불 규정 동의가 필요해요';
     }
