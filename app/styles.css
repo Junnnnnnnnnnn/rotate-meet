@@ -381,9 +381,9 @@ body {
   padding: 16px 20px 14px;
   background: var(--cream);
   border-bottom: 1px solid var(--line);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  /* Not sticky: the header (progress bar) scrolls together with the body
+     content as one unit, instead of staying pinned while the body scrolls
+     under it separately. */
 }
 .header-row {
   display: flex; justify-content: space-between; align-items: center;

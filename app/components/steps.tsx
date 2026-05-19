@@ -1010,7 +1010,7 @@ function Step7Pref({ data, update, errors }: StepProps) {
         required
         err={errors.drink}
         helper="음료는 모두 아이스로 제공됩니다"
-        options={["아메리카노", "아이스티", "캐모마일티"]}
+        options={["아메리카노", "아이스티"]}
         value={data.drink}
         onChange={(v) => update({ drink: v })}
       />
