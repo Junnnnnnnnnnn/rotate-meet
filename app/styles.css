@@ -391,6 +391,7 @@ body {
   border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
+  touch-action: manipulation;
 }
 .step-counter {
   font-size: 13px; font-weight: 700;
@@ -1114,6 +1115,7 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   border-radius: 16px;
   cursor: pointer;
   border: none;
+  touch-action: manipulation;
   transition: transform 150ms var(--ease-out), background 200ms;
 }
 .btn-prev {
