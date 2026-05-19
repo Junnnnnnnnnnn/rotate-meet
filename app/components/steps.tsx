@@ -239,8 +239,8 @@ function Step2Identity({ data, update, errors }: StepProps) {
 }
 
 const GENDER_OPTIONS = [
-  { v: "male", t: "남자", price: "35,000원", discounted: "30,000원" },
-  { v: "female", t: "여자", price: "25,000원", discounted: "20,000원" },
+  { v: "male", t: "남자", price: "40,000원" },
+  { v: "female", t: "여자", price: "30,000원" },
 ] as const;
 
 function Step3Gender({ data, update, errors }: StepProps) {
@@ -257,18 +257,17 @@ function Step3Gender({ data, update, errors }: StepProps) {
             <span className="ring" />
             <div className="radio-card-body">
               <div className="radio-main">{o.t}</div>
-              <div className="radio-sub">
-                참가비 · <s className="price-strike">{o.price}</s>
-              </div>
+              <div className="radio-sub">참가비</div>
             </div>
             <div className="radio-card-aside">
-              <span className="price-pill">{o.discounted}</span>
+              <span className="price-pill">{o.price}</span>
             </div>
           </label>
         ))}
       </div>
       <div className="price-note">
-        🎉 <strong>첫 개최 기념 5,000원 할인</strong>
+        <div className="price-note-title">🎉 <strong>특별이벤트</strong></div>
+        야구 관련 소지품 또는 유니폼 착용 시 5,000원 페이백!
       </div>
       <ErrText msg={errors.gender} />
     </>

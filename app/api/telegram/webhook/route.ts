@@ -271,6 +271,36 @@ async function actionPaid(
   await refreshNotifyMessage(data as SignupRecord, notifyMsgId);
 }
 
+// Stored key is authoritative, but fall back to the deterministic key the
+// submit route always writes: the client compresses every photo to JPEG, so
+// id/employment objects are always `${prefix}/${signupId}.jpg`. This rescues
+// rows whose key column ended up null (older rows, or a previously swallowed
+// failure that nulled the key without deleting the object).
+function privateKeyFor(
+  stored: string | null,
+  prefix: 'id' | 'employment',
+  signupId: string,
+): string {
+  return stored && stored.trim() ? stored : `${prefix}/${signupId}.jpg`;
+}
+
+// Deletes all R2 photos for a signup. Public face/body are best-effort. The
+// private id/employment deletes are authoritative: R2 DeleteObject is
+// idempotent (no error if already gone), so a throw here is a real failure
+// (auth/network/config) — we let it propagate so the caller does NOT null the
+// DB keys or mark photos_purged. The row stays accurate and the operator gets
+// a visible error to retry, instead of silently orphaning the object.
+async function purgeSignupPhotos(s: SignupRecord): Promise<void> {
+  const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
+  const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
+  await Promise.allSettled([deletePublic(faceKey), deletePublic(bodyKey)]);
+
+  await Promise.all([
+    deletePrivate(privateKeyFor(s.photo_id_key, 'id', s.id)),
+    deletePrivate(privateKeyFor(s.photo_employment_key, 'employment', s.id)),
+  ]);
+}
+
 async function actionReject(
   signupId: string,
   notifyMsgId: number,
@@ -286,14 +316,7 @@ async function actionReject(
 
   const s = signup as SignupRecord;
 
-  const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
-  const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
-  await Promise.allSettled([
-    deletePublic(faceKey),
-    deletePublic(bodyKey),
-    s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
-    s.photo_employment_key ? deletePrivate(s.photo_employment_key) : Promise.resolve(),
-  ]);
+  await purgeSignupPhotos(s);
 
   const now = new Date().toISOString();
   const { data: updated, error: updErr } = await supabaseAdmin
@@ -332,14 +355,7 @@ async function actionPurgeAllPhotos(
 
   const s = signup as SignupRecord;
 
-  const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
-  const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
-  await Promise.allSettled([
-    deletePublic(faceKey),
-    deletePublic(bodyKey),
-    s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
-    s.photo_employment_key ? deletePrivate(s.photo_employment_key) : Promise.resolve(),
-  ]);
+  await purgeSignupPhotos(s);
 
   const now = new Date().toISOString();
   const { data: updated, error: updErr } = await supabaseAdmin
@@ -535,6 +551,9 @@ async function sendList(): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from('signups')
     .select('id, name, phone, status, created_at, telegram_notify_msg_id')
+    // 취소(소프트 딜리트)·거절(차단)·실제 삭제된 신청은 목록에서 제외.
+    // 실제 삭제 행은 DB에서 사라지므로 cancelled/blocked만 걸러내면 됨.
+    .not('status', 'in', '(cancelled,blocked)')
     .order('created_at', { ascending: true });
   if (error) {
     await sendMessage(`목록 조회 실패: ${error.message}`);
@@ -549,8 +568,6 @@ async function sendList(): Promise<void> {
   const pending = rows.filter((r) => r.status === 'pending');
   const normal = rows.filter((r) => r.status === 'normal');
   const paid = rows.filter((r) => r.status === 'paid');
-  const cancelled = rows.filter((r) => r.status === 'cancelled');
-  const blocked = rows.filter((r) => r.status === 'blocked');
 
   const lines: string[] = [];
   lines.push(`📋 <b>신청 현황 (총 ${rows.length}건)</b>`);
@@ -604,27 +621,6 @@ async function sendList(): Promise<void> {
       globalIdx++;
       const ts = formatTimestamp(r.created_at);
       lines.push(`${globalIdx}. ${escapeHtml(r.name)} · ${ts}`);
-      addButton(globalIdx, r.telegram_notify_msg_id);
-    });
-  }
-
-  if (cancelled.length > 0) {
-    lines.push('');
-    lines.push(`✗ <b>취소 (${cancelled.length}건)</b>`);
-    cancelled.forEach((r) => {
-      globalIdx++;
-      lines.push(`${globalIdx}. ${escapeHtml(r.name)}`);
-    });
-  }
-
-  if (blocked.length > 0) {
-    lines.push('');
-    lines.push(`❌ <b>거절(차단) (${blocked.length}건)</b> — 같은 번호 재신청 차단됨`);
-    blocked.forEach((r) => {
-      globalIdx++;
-      lines.push(
-        `${globalIdx}. ${escapeHtml(r.name)} · ${escapeHtml(r.phone)}`,
-      );
       addButton(globalIdx, r.telegram_notify_msg_id);
     });
   }
@@ -1023,16 +1019,15 @@ async function dateActionDeleteConfirm(
   >;
 
   for (const s of signups) {
-    const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
-    const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
-    await Promise.allSettled([
-      deletePublic(faceKey),
-      deletePublic(bodyKey),
-      s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
-      s.photo_employment_key
-        ? deletePrivate(s.photo_employment_key)
-        : Promise.resolve(),
-    ]);
+    try {
+      await purgeSignupPhotos(s);
+    } catch (e) {
+      // R2 delete genuinely failed — skip this signup so its row/keys stay
+      // accurate and a re-run of the cancel can finish the cleanup, rather
+      // than marking it cancelled with the object still in the bucket.
+      console.error(`Session cancel: R2 purge failed for ${s.id}:`, e);
+      continue;
+    }
 
     if (s.telegram_photo_msg_ids?.length) {
       await Promise.allSettled(

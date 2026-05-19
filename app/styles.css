@@ -600,6 +600,8 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   letter-spacing: -0.01em;
 }
 .price-note strong { color: var(--coral); font-weight: 800; }
+.price-note { text-align: center; }
+.price-note-title { margin-bottom: 4px; }
 .price-strike {
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
