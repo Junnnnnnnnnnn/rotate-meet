@@ -23,7 +23,12 @@ body {
   min-height: 100vh;
   background: var(--cream);
   position: relative;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`): `overflow-x: hidden` makes the spec compute
+     `overflow-y` to `auto`, turning .frame into a scroll container — that
+     breaks `position: sticky` on .form-header (progress bar scrolls away)
+     and makes window.scrollTo(0,0) unreliable. `clip` contains the same
+     horizontal overflow without establishing a scroll container. */
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
 }
