@@ -85,43 +85,75 @@ export function ShakeWrap({ shakeKey, children }: ShakeWrapProps) {
   );
 }
 
-export const EVENT_SESSIONS = [
-  {
-    v: "2025-05-23-sinchon",
-    date: "5월 23일",
-    dow: "토요일",
-    venue: "신촌점",
-    time: "오후 7시",
-  },
-] as const;
+type ApiSession = {
+  id: string;
+  dateLabel: string;
+  dowLabel: string;
+  venue: string;
+  time: string;
+};
 
 function Step1Date({ data, update, errors }: StepProps) {
+  // Sessions are DB-driven (managed via the Telegram /date command), fetched
+  // from /api/sessions. null = still loading.
+  const [sessions, setSessions] = useState<ApiSession[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoadError(false);
+    fetch("/api/sessions")
+      .then((r) => r.json())
+      .then((j: { ok: boolean; sessions?: ApiSession[] }) => {
+        if (!alive) return;
+        if (j.ok && j.sessions) setSessions(j.sessions);
+        else setLoadError(true);
+      })
+      .catch(() => {
+        if (alive) setLoadError(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <>
       <StepHeader
         title="참여 날짜를 선택해주세요"
         helper="새 세션이 열리면 이 목록에 추가돼요."
       />
-      <div className="radio-cards">
-        {EVENT_SESSIONS.map((s) => (
-          <label
-            key={s.v}
-            className={`radio-card radio-card--date ${data.eventDate === s.v ? "selected" : ""}`}
-            onClick={() => update({ eventDate: s.v })}
-          >
-            <span className="ring" />
-            <div className="radio-card-body date-body">
-              <div className="date-line-1">
-                {s.date}
-                <span className="date-dow">({s.dow})</span>
+      {sessions === null && !loadError && (
+        <p className="step-helper">목록을 불러오는 중...</p>
+      )}
+      {loadError && (
+        <ErrText msg="목록을 불러오지 못했어요. 잠시 후 새로고침 해주세요." />
+      )}
+      {sessions !== null && !loadError && sessions.length === 0 && (
+        <p className="step-helper">현재 열린 세션이 없어요. 운영팀에 문의해주세요.</p>
+      )}
+      {sessions !== null && sessions.length > 0 && (
+        <div className="radio-cards">
+          {sessions.map((s) => (
+            <label
+              key={s.id}
+              className={`radio-card radio-card--date ${data.eventDate === s.id ? "selected" : ""}`}
+              onClick={() => update({ eventDate: s.id })}
+            >
+              <span className="ring" />
+              <div className="radio-card-body date-body">
+                <div className="date-line-1">
+                  {s.dateLabel}
+                  <span className="date-dow">({s.dowLabel})</span>
+                </div>
+                <div className="date-line-2">
+                  {s.venue} · {s.time}
+                </div>
               </div>
-              <div className="date-line-2">
-                {s.venue} · {s.time}
-              </div>
-            </div>
-          </label>
-        ))}
-      </div>
+            </label>
+          ))}
+        </div>
+      )}
       <ErrText msg={errors.eventDate} />
     </>
   );

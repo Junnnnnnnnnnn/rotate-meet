@@ -16,6 +16,7 @@ const SESSION_LABEL: Record<string, string> = {
 export type SignupRecord = {
   id: string;
   event_session_id: string;
+  event_session_label: string | null;
   name: string;
   phone: string;
   birthdate: string;
@@ -73,14 +74,26 @@ export function formatNotification(
   employmentPresignedUrl: string | null,
 ): string {
   const isBlocked = s.status === 'blocked';
+  const isCancelled = s.status === 'cancelled';
 
   const lines: string[] = [];
-  lines.push(isBlocked ? '❌ <b>거절됨</b>' : '🌹 <b>신규 참가 신청</b>');
+  lines.push(
+    isBlocked
+      ? '❌ <b>거절됨</b>'
+      : isCancelled
+        ? '✗ <b>세션 취소됨</b>'
+        : '🌹 <b>신규 참가 신청</b>',
+  );
   lines.push(`ID: <code>${escapeHtml(s.id.slice(0, 8))}</code>`);
 
   if (isBlocked && s.blocked_at) {
     const by = s.blocked_by ? ` (by ${escapeHtml(s.blocked_by)})` : '';
     lines.push(`<b>상태:</b> ❌ 거절${by} · ${formatTimestamp(s.blocked_at)}`);
+  } else if (isCancelled) {
+    const ts = s.photos_purged_at
+      ? ` · ${formatTimestamp(s.photos_purged_at)}`
+      : '';
+    lines.push(`<b>상태:</b> ✗ 세션 취소 (같은 번호 재신청 가능)${ts}`);
   } else if (s.status === 'paid' && s.paid_at) {
     const by = s.paid_by_name ? ` (by ${escapeHtml(s.paid_by_name)})` : '';
     lines.push(`<b>상태:</b> 💰 입금 완료${by} · ${formatTimestamp(s.paid_at)}`);
@@ -93,7 +106,7 @@ export function formatNotification(
 
   lines.push('');
   lines.push(
-    `<b>참가일:</b> ${escapeHtml(SESSION_LABEL[s.event_session_id] ?? s.event_session_id)}`,
+    `<b>참가일:</b> ${escapeHtml(s.event_session_label ?? SESSION_LABEL[s.event_session_id] ?? s.event_session_id)}`,
   );
   lines.push(
     `<b>이름:</b> ${escapeHtml(s.name)} (${GENDER_LABEL[s.gender] ?? s.gender})`,
@@ -121,7 +134,7 @@ export function formatNotification(
   if (s.photos_purged_at) {
     const by = s.photos_purged_by ? ` (by ${escapeHtml(s.photos_purged_by)})` : '';
     lines.push(`🗑 모든 사진 폐기됨${by} · ${formatTimestamp(s.photos_purged_at)}`);
-    if (isBlocked) {
+    if (isBlocked || isCancelled) {
       lines.push('<i>DB 데이터는 남기고, 요금 관리를 위해 사진은 삭제됐어요.</i>');
     }
   } else {
@@ -150,7 +163,7 @@ export function formatNotification(
 }
 
 export function buildButtons(signup: SignupRecord): InlineKeyboardMarkup {
-  if (signup.status === 'blocked') {
+  if (signup.status === 'blocked' || signup.status === 'cancelled') {
     return { inline_keyboard: [] };
   }
 

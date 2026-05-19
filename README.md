@@ -101,6 +101,8 @@ POST /api/submit (multipart/form-data)
 | `/status` 또는 `현황`           | 총 N건 / 🟡 본인확인 대기 / ✓ 입금 대기 / 💰 입금 완료 카운트 |
 | `/list` 또는 `목록`             | 상태별 그룹핑 (대기/입금대기엔 전화번호+8자리ID 표시)         |
 | `/paid abc12345 [def67890 ...]` | 8자리 ID로 배치 입금 처리 (status normal → paid)              |
+| `/date`                         | 참여 날짜 세션 목록 + 🗑 삭제 버튼 (신청자 있으면 확인 후 취소 처리) |
+| `/date add 2025-05-24 신촌점 19시` | 세션 추가 (장소는 한 토큰, 시간은 19시/19:00/오후 7시)      |
 | `/help` 또는 `도움말`           | 사용법 안내                                                   |
 
 ---
@@ -195,6 +197,26 @@ POST /api/submit (multipart/form-data)
 | `signups_status_idx`           | status 필터 가속                                                         |
 | `signups_phone_active_uidx`    | 활성 신청(`status <> 'cancelled'`) 한정 전화번호 unique → 중복 신청 차단 |
 | `signups_photo_id_pending_idx` | 신분증 미폐기 건 부분 인덱스                                             |
+
+### `event_sessions` 테이블 (참여 날짜)
+
+Step 1의 참여 날짜 목록은 하드코딩이 아니라 이 테이블에서 옵니다. 운영자가 Telegram `/date` 명령으로 추가·삭제·비활성화하며, 폼은 `GET /api/sessions`(`force-dynamic`)로 활성 세션을 즉시 읽습니다.
+
+| 컬럼         | 타입        | 의미                                            |
+| ------------ | ----------- | ----------------------------------------------- |
+| `id`         | text PK     | 슬러그 (`2025-05-24-ab12`). `signups.event_session_id`가 이 값을 저장 |
+| `event_date` | date        | 행사 날짜 (요일은 코드에서 자동 계산)           |
+| `venue`      | text        | 장소 (예: `신촌점`)                             |
+| `time_label` | text        | 정규화된 시간 (예: `오후 7시`)                  |
+| `is_active`  | boolean     | false면 폼에서 숨김 (외부에서 비활성화한 행은 ↩ 활성화 가능) |
+
+**세션 삭제 (`/date`의 🗑 버튼):**
+
+- 신청자 없음 → 세션 행 즉시 삭제
+- 신청자 있음 → `삭제하려는 {날짜} {장소} 에 {N}명의 신청자가 존재합니다. 정말 삭제 하실건가요?` 확인 → [✅ 정말 삭제] 누르면 해당 세션 신청자 전원을 **거절급으로 정리**: R2 사진 4종 삭제 + 채팅 사진 메시지 삭제 + 알림 메시지를 "✗ 세션 취소됨"으로 갱신(확인/입금 등 버튼 제거) + `status='cancelled'`, 그 후 세션 행 삭제
+- `cancelled`는 `signups_phone_active_uidx`(`status <> 'cancelled'`)와 거절 차단 검사(`status='blocked'`) 모두에서 제외 → 거절급 정리를 하되 **차단은 안 하므로 같은 번호로 다른 세션에 깨끗하게 재신청 가능** (리셋)
+
+> 마이그레이션: `db/migrations/2026-05-19-event-sessions.sql` (Supabase SQL Editor에서 직접 Run). `signups.event_session_label`(text, nullable)도 같이 추가 — 제출 시 사람이 읽는 라벨을 비정규화 저장해 알림에 표시. 옛 행은 `lib/format-notification.ts`의 정적 맵으로 폴백.
 
 ### 보안 (RLS)
 

@@ -13,6 +13,7 @@ import {
   escapeHtml,
   TELEGRAM_CHAT_ID,
   type InlineKeyboardButton,
+  type InlineKeyboardMarkup,
 } from '@/lib/telegram';
 import {
   formatNotification,
@@ -22,6 +23,13 @@ import {
   type SignupRecord,
   type AdminMemo,
 } from '@/lib/format-notification';
+import {
+  isValidDateStr,
+  parseTimeLabel,
+  genSlug,
+  dateParen,
+  type EventSession,
+} from '@/lib/sessions';
 
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
@@ -143,6 +151,14 @@ async function handleCallback(cb: TelegramCallbackQuery): Promise<void> {
     } else if (action === 'memo') {
       await actionMemoPrompt(signupId, operatorName);
       await answerCallbackQuery(cb.id, '메모를 입력해주세요');
+    } else if (action === 'datedel') {
+      await dateActionDelete(signupId, cb);
+    } else if (action === 'datedelc') {
+      await dateActionDeleteConfirm(signupId, cb);
+    } else if (action === 'datedelx') {
+      await dateActionDeleteCancel(cb);
+    } else if (action === 'dateact') {
+      await dateActionActivate(signupId, cb);
     } else {
       await answerCallbackQuery(cb.id);
     }
@@ -190,6 +206,11 @@ async function handleMessage(msg: TelegramMessage): Promise<void> {
   if (cmd === '/paid' && msg.from) {
     const args = text.replace(/^\/paid(@\S+)?\s*/, '').trim();
     await handlePaidCommand(args, msg.from);
+    return;
+  }
+  if (cmd === '/date') {
+    const args = text.replace(/^\/date(@\S+)?\s*/, '').trim();
+    await handleDateCommand(args);
     return;
   }
   if (cmd === '/help' || cmd === '/start' || text === '도움말') {
@@ -727,6 +748,387 @@ async function handlePaidCommand(
   await sendMessage(lines.join('\n'), { parse_mode: 'HTML', disable_notification: true });
 }
 
+async function handleDateCommand(args: string): Promise<void> {
+  if (/^add\b/i.test(args)) {
+    await dateAdd(args.replace(/^add\s*/i, '').trim());
+    return;
+  }
+  await sendDateList();
+}
+
+async function sendDateUsage(): Promise<void> {
+  await sendMessage(
+    [
+      '사용법: <code>/date add 2025-05-24 신촌점 19시</code>',
+      '• 장소는 띄어쓰기 없이 (예: 신촌점)',
+      '• 시간은 19시 / 19:00 / 오후 7시 형식',
+    ].join('\n'),
+    { parse_mode: 'HTML', disable_notification: true },
+  );
+}
+
+async function dateAdd(rest: string): Promise<void> {
+  const parts = rest.split(/\s+/).filter(Boolean);
+  if (parts.length < 3) {
+    await sendDateUsage();
+    return;
+  }
+  const [dateStr, venue, ...timeParts] = parts;
+  if (!isValidDateStr(dateStr)) {
+    await sendMessage('날짜 형식이 올바르지 않아요. 예: 2025-05-24', {
+      disable_notification: true,
+    });
+    return;
+  }
+  const timeLabel = parseTimeLabel(timeParts.join(' '));
+
+  const { data: dup } = await supabaseAdmin
+    .from('event_sessions')
+    .select('id')
+    .eq('event_date', dateStr)
+    .eq('venue', venue)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+  if (dup) {
+    await sendMessage('이미 등록된 세션이에요 (같은 날짜·장소).', {
+      disable_notification: true,
+    });
+    return;
+  }
+
+  const id = genSlug(dateStr);
+  const { error } = await supabaseAdmin.from('event_sessions').insert({
+    id,
+    event_date: dateStr,
+    venue,
+    time_label: timeLabel,
+    is_active: true,
+  });
+  if (error) {
+    await sendMessage(`추가 실패: ${error.message}`, {
+      disable_notification: true,
+    });
+    return;
+  }
+
+  await sendMessage(
+    `✅ <b>세션 추가됨</b>\n${dateParen(dateStr)} · ${escapeHtml(venue)} · ${escapeHtml(timeLabel)}`,
+    { parse_mode: 'HTML', disable_notification: true },
+  );
+  await sendDateList();
+}
+
+async function renderDateList(): Promise<{
+  text: string;
+  reply_markup: InlineKeyboardMarkup;
+}> {
+  const { data, error } = await supabaseAdmin
+    .from('event_sessions')
+    .select('id, event_date, venue, time_label, is_active')
+    .order('event_date', { ascending: true });
+
+  const lines: string[] = ['📅 <b>참여 날짜 세션</b>'];
+  const buttons: InlineKeyboardButton[][] = [];
+
+  if (error) {
+    lines.push('', `조회 실패: ${escapeHtml(error.message)}`);
+    return { text: lines.join('\n'), reply_markup: { inline_keyboard: [] } };
+  }
+
+  const rows = (data ?? []) as EventSession[];
+  const active = rows.filter((r) => r.is_active);
+  const inactive = rows.filter((r) => !r.is_active);
+
+  if (active.length === 0) {
+    lines.push('', '활성 세션이 없어요.');
+  } else {
+    lines.push('', `<b>활성 (${active.length})</b>`);
+    active.forEach((s, i) => {
+      lines.push(
+        `${i + 1}. ${dateParen(s.event_date)} · ${escapeHtml(s.venue)} · ${escapeHtml(s.time_label)}`,
+      );
+      buttons.push([
+        {
+          text: `🗑 ${i + 1}. ${dateParen(s.event_date)} ${s.venue}`,
+          callback_data: `datedel:${s.id}`,
+        },
+      ]);
+    });
+  }
+
+  if (inactive.length > 0) {
+    lines.push('', `<b>비활성 (${inactive.length})</b> — 폼에서 숨김`);
+    inactive.forEach((s) => {
+      lines.push(
+        `· ${dateParen(s.event_date)} · ${escapeHtml(s.venue)} · ${escapeHtml(s.time_label)}`,
+      );
+      buttons.push([
+        {
+          text: `↩ 활성화 ${dateParen(s.event_date)} ${s.venue}`,
+          callback_data: `dateact:${s.id}`,
+        },
+      ]);
+    });
+  }
+
+  lines.push('', '<i>추가: /date add 2025-05-24 신촌점 19시</i>');
+
+  return {
+    text: lines.join('\n'),
+    reply_markup: { inline_keyboard: buttons },
+  };
+}
+
+async function sendDateList(): Promise<void> {
+  const { text, reply_markup } = await renderDateList();
+  await sendMessage(text, {
+    parse_mode: 'HTML',
+    disable_notification: true,
+    reply_markup,
+  });
+}
+
+async function refreshDateListMessage(
+  cb: TelegramCallbackQuery,
+): Promise<void> {
+  const { text, reply_markup } = await renderDateList();
+  const msgId = cb.message?.message_id;
+  if (msgId === undefined) {
+    await sendMessage(text, {
+      parse_mode: 'HTML',
+      disable_notification: true,
+      reply_markup,
+    });
+    return;
+  }
+  try {
+    await editMessageText(msgId, text, {
+      parse_mode: 'HTML',
+      reply_markup,
+    });
+  } catch {
+    await sendMessage(text, {
+      parse_mode: 'HTML',
+      disable_notification: true,
+      reply_markup,
+    });
+  }
+}
+
+async function dateActionDelete(
+  sessionId: string,
+  cb: TelegramCallbackQuery,
+): Promise<void> {
+  const { data: session } = await supabaseAdmin
+    .from('event_sessions')
+    .select('id, event_date, venue, time_label')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (!session) {
+    await answerCallbackQuery(cb.id, '세션을 찾을 수 없어요', true);
+    return;
+  }
+
+  // Only non-cancelled signups count — those are the ones the delete will
+  // soft-delete (status → 'cancelled').
+  const { count, error: cntErr } = await supabaseAdmin
+    .from('signups')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_session_id', sessionId)
+    .neq('status', 'cancelled');
+  if (cntErr) {
+    await answerCallbackQuery(cb.id, `조회 실패: ${cntErr.message}`, true);
+    return;
+  }
+  const n = count ?? 0;
+
+  // No active signups → delete the session row outright.
+  if (n === 0) {
+    const { error: delErr } = await supabaseAdmin
+      .from('event_sessions')
+      .delete()
+      .eq('id', sessionId);
+    if (delErr) {
+      await answerCallbackQuery(cb.id, `삭제 실패: ${delErr.message}`, true);
+      return;
+    }
+    await answerCallbackQuery(cb.id, '🗑 삭제됨');
+    await refreshDateListMessage(cb);
+    return;
+  }
+
+  // Has signups → confirm first. Confirming soft-deletes them (cancelled),
+  // which releases the phone-unique constraint and the blocked check so they
+  // can re-apply for another session cleanly.
+  await answerCallbackQuery(cb.id);
+  await sendMessage(
+    [
+      '⚠️ <b>삭제 확인</b>',
+      `삭제하려는 <b>${dateParen(session.event_date)} ${escapeHtml(session.venue)}</b> 에 <b>${n}명</b>의 신청자가 존재합니다.`,
+      '정말 삭제 하실건가요?',
+      '<i>신청자 전원이 거절 정리됩니다 — R2 사진·채팅 사진 메시지 삭제, 확인/입금 버튼 제거. 단 차단은 안 하므로 같은 번호로 다시 신청할 수 있어요.</i>',
+    ].join('\n'),
+    {
+      parse_mode: 'HTML',
+      disable_notification: true,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: `✅ 정말 삭제 (${n}명 정리)`,
+              callback_data: `datedelc:${sessionId}`,
+            },
+            { text: '취소', callback_data: `datedelx:${sessionId}` },
+          ],
+        ],
+      },
+    },
+  );
+}
+
+async function dateActionDeleteConfirm(
+  sessionId: string,
+  cb: TelegramCallbackQuery,
+): Promise<void> {
+  const { data: session } = await supabaseAdmin
+    .from('event_sessions')
+    .select('id, event_date, venue')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  // Pull every non-cancelled signup and reject-clean each: delete R2 photos,
+  // delete the chat photo messages, strip the notify message's buttons.
+  // status → 'cancelled' (NOT 'blocked'), so the partial unique index
+  // excludes them and the blocked check ignores them — same phone can sign
+  // up again cleanly.
+  const { data: rows, error: fetchErr } = await supabaseAdmin
+    .from('signups')
+    .select('*')
+    .eq('event_session_id', sessionId)
+    .neq('status', 'cancelled');
+  if (fetchErr) {
+    await answerCallbackQuery(cb.id, `조회 실패: ${fetchErr.message}`, true);
+    return;
+  }
+
+  const operator = cb.from;
+  const operatorName = formatUserName(operator);
+  const now = new Date().toISOString();
+  const signups = (rows ?? []) as Array<
+    SignupRecord & {
+      telegram_notify_msg_id: number | null;
+      telegram_photo_msg_ids: number[] | null;
+    }
+  >;
+
+  for (const s of signups) {
+    const faceKey = r2KeyFromUrl(s.photo_face_url, publicBaseUrl!);
+    const bodyKey = r2KeyFromUrl(s.photo_body_url, publicBaseUrl!);
+    await Promise.allSettled([
+      deletePublic(faceKey),
+      deletePublic(bodyKey),
+      s.photo_id_key ? deletePrivate(s.photo_id_key) : Promise.resolve(),
+      s.photo_employment_key
+        ? deletePrivate(s.photo_employment_key)
+        : Promise.resolve(),
+    ]);
+
+    if (s.telegram_photo_msg_ids?.length) {
+      await Promise.allSettled(
+        s.telegram_photo_msg_ids.map((mid) => deleteMessage(mid)),
+      );
+    }
+
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from('signups')
+      .update({
+        status: 'cancelled',
+        photo_id_key: null,
+        photo_employment_key: null,
+        photos_purged_at: now,
+        photos_purged_by_id: operator.id,
+        photos_purged_by: operatorName,
+      })
+      .eq('id', s.id)
+      .select()
+      .single();
+    if (updErr || !updated) continue;
+
+    if (s.telegram_notify_msg_id) {
+      try {
+        await refreshNotifyMessage(
+          updated as SignupRecord,
+          s.telegram_notify_msg_id,
+        );
+      } catch (e) {
+        console.error('Refresh notify failed:', e);
+      }
+    }
+  }
+
+  const n = signups.length;
+
+  const { error: delErr } = await supabaseAdmin
+    .from('event_sessions')
+    .delete()
+    .eq('id', sessionId);
+  if (delErr) {
+    await answerCallbackQuery(cb.id, `세션 삭제 실패: ${delErr.message}`, true);
+    return;
+  }
+
+  await answerCallbackQuery(cb.id, `🗑 삭제됨 (${n}명 정리)`);
+  const msgId = cb.message?.message_id;
+  if (msgId !== undefined) {
+    const label = session
+      ? `${dateParen(session.event_date)} ${escapeHtml(session.venue)}`
+      : escapeHtml(sessionId);
+    try {
+      await editMessageText(
+        msgId,
+        `🗑 <b>${label}</b> 삭제됨 — ${n}명 거절 정리(사진·메시지 삭제, 같은 번호 재신청 가능)`,
+        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } },
+      );
+    } catch {
+      /* message gone — ignore */
+    }
+  }
+  await sendDateList();
+}
+
+async function dateActionDeleteCancel(
+  cb: TelegramCallbackQuery,
+): Promise<void> {
+  await answerCallbackQuery(cb.id, '취소됨');
+  const msgId = cb.message?.message_id;
+  if (msgId !== undefined) {
+    try {
+      await editMessageText(msgId, '❌ 삭제 취소됨', {
+        reply_markup: { inline_keyboard: [] },
+      });
+    } catch {
+      /* message gone — ignore */
+    }
+  }
+}
+
+async function dateActionActivate(
+  sessionId: string,
+  cb: TelegramCallbackQuery,
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('event_sessions')
+    .update({ is_active: true })
+    .eq('id', sessionId);
+  if (error) {
+    await answerCallbackQuery(cb.id, `실패: ${error.message}`, true);
+    return;
+  }
+  await answerCallbackQuery(cb.id, '✅ 활성화됨');
+  await refreshDateListMessage(cb);
+}
+
 async function sendHelp(): Promise<void> {
   const text = [
     '🤖 <b>봇 사용법</b>',
@@ -735,6 +1137,8 @@ async function sendHelp(): Promise<void> {
     '/status (또는 "현황") — 신청 현황 카운트',
     '/list (또는 "목록") — 상태별 신청 목록',
     '/paid abc12345 [def67890 ...] — 입금 완료 처리 (배치)',
+    '/date — 참여 날짜 세션 목록 (버튼으로 삭제/활성화)',
+    '/date add 2025-05-24 신촌점 19시 — 세션 추가',
     '/help (또는 "도움말") — 이 메시지',
     '',
     '<b>각 신청 메시지의 버튼</b>',

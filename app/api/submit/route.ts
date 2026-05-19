@@ -14,6 +14,7 @@ import {
   buildButtons,
   type SignupRecord,
 } from '@/lib/format-notification';
+import { notifyLabel } from '@/lib/sessions';
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -24,7 +25,6 @@ const ALLOWED_TYPES = new Set([
   'image/heif',
 ]);
 
-const EVENT_SESSIONS = ['2025-05-23-sinchon'] as const;
 const GENDERS = ['male', 'female'] as const;
 const PREFER_AGES = ['동갑', '연상', '연하', '상관없음'] as const;
 const DRINKS = ['아메리카노', '아이스티', '캐모마일티'] as const;
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
     const refundAgreed = getStr(fd, 'refund_agreed') === 'true';
     const heroVariant = getStr(fd, 'hero_variant');
 
-    if (!isOneOf(eventSessionId, EVENT_SESSIONS))
-      throw new ValidationError('참여 날짜 값이 잘못됐어요');
+    if (!eventSessionId)
+      throw new ValidationError('참여 날짜를 선택해주세요');
     if (!name) throw new ValidationError('이름이 누락되었어요');
     if (!/^01[016789]-\d{3,4}-\d{4}$/.test(phone))
       throw new ValidationError('연락처 형식이 올바르지 않아요');
@@ -143,6 +143,19 @@ export async function POST(request: NextRequest) {
         'phone_blocked',
       );
     }
+
+    const { data: session, error: sessionErr } = await supabaseAdmin
+      .from('event_sessions')
+      .select('id, event_date, venue, time_label, is_active')
+      .eq('id', eventSessionId)
+      .maybeSingle();
+    if (sessionErr) {
+      throw new Error(`Session lookup failed: ${sessionErr.message}`);
+    }
+    if (!session || !session.is_active) {
+      throw new ValidationError('참여 날짜 값이 잘못됐어요');
+    }
+    const eventSessionLabel = notifyLabel(session);
 
     let idealTags: string[] = [];
     try {
@@ -202,6 +215,7 @@ export async function POST(request: NextRequest) {
       .insert({
         id,
         event_session_id: eventSessionId,
+        event_session_label: eventSessionLabel,
         name,
         phone,
         birthdate,
