@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import {
   ShakeWrap,
   STEP_COMPONENTS,
@@ -97,8 +97,21 @@ export default function FormFlow({ onComplete, onExit, heroVariant }: FormFlowPr
   const [duplicatePhoneOpen, setDuplicatePhoneOpen] = useState(false);
   const [blockedPhoneOpen, setBlockedPhoneOpen] = useState(false);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
+  // Reset scroll to the very top whenever the step changes. Runs in a layout
+  // effect (before paint) so the previous step's scroll position never flashes,
+  // and resets every scroll root because mobile browsers disagree on which one
+  // (window / documentElement / body) is the actual scroller.
+  useLayoutEffect(() => {
+    const toTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    toTop();
+    // Re-assert after layout settles (e.g. Step 1's async session list, image
+    // loads) so a late reflow can't leave the user scrolled down.
+    const raf = requestAnimationFrame(toTop);
+    return () => cancelAnimationFrame(raf);
   }, [step]);
 
   const update = (patch: Partial<FormData>) => setData((d) => ({ ...d, ...patch }));

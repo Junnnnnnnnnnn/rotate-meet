@@ -23,7 +23,12 @@ body {
   min-height: 100vh;
   background: var(--cream);
   position: relative;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`): `overflow-x: hidden` makes the spec compute
+     `overflow-y` to `auto`, turning .frame into a scroll container — that
+     breaks `position: sticky` on .form-header (progress bar scrolls away)
+     and makes window.scrollTo(0,0) unreliable. `clip` contains the same
+     horizontal overflow without establishing a scroll container. */
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
 }
@@ -376,9 +381,9 @@ body {
   padding: 16px 20px 14px;
   background: var(--cream);
   border-bottom: 1px solid var(--line);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  /* Not sticky: the header (progress bar) scrolls together with the body
+     content as one unit, instead of staying pinned while the body scrolls
+     under it separately. */
 }
 .header-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -391,6 +396,7 @@ body {
   border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
+  touch-action: manipulation;
 }
 .step-counter {
   font-size: 13px; font-weight: 700;
@@ -600,6 +606,8 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   letter-spacing: -0.01em;
 }
 .price-note strong { color: var(--coral); font-weight: 800; }
+.price-note { text-align: center; }
+.price-note-title { margin-bottom: 4px; }
 .price-strike {
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
@@ -1112,6 +1120,7 @@ textarea.text-input { resize: vertical; min-height: 88px; line-height: 1.5; font
   border-radius: 16px;
   cursor: pointer;
   border: none;
+  touch-action: manipulation;
   transition: transform 150ms var(--ease-out), background 200ms;
 }
 .btn-prev {
