@@ -15,6 +15,7 @@ import {
   type SignupRecord,
 } from '@/lib/format-notification';
 import { notifyLabel } from '@/lib/sessions';
+import { buildPhotoUrl } from '@/lib/photo-links';
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -30,7 +31,10 @@ const PREFER_AGES = ['동갑', '연상', '연하', '상관없음'] as const;
 const DRINKS = ['아메리카노', '아이스티', '캐모마일티'] as const;
 const CHANNELS = ['인스타그램', '친구 추천', '검색', '기타'] as const;
 
-const PRIVATE_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
+// Only used for the one-shot sendPhoto call where Telegram fetches the image
+// once and caches it. The notification body's links go through the stable
+// /api/photo redirect endpoint instead.
+const SEND_PHOTO_PRESIGNED_TTL_SECONDS = 5 * 60;
 
 class ValidationError extends Error {
   code?: string;
@@ -258,22 +262,20 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const employmentPresignedUrl = await getPrivatePresignedUrl(
+      const employmentSendUrl = await getPrivatePresignedUrl(
         employmentObjectKey,
-        PRIVATE_PRESIGNED_TTL_SECONDS,
+        SEND_PHOTO_PRESIGNED_TTL_SECONDS,
       );
       const facePhotoMsg = await sendPhoto(faceUrl, { disable_notification: true });
       const bodyPhotoMsg = await sendPhoto(bodyUrl, { disable_notification: true });
-      const employmentPhotoMsg = await sendPhoto(employmentPresignedUrl, {
+      const employmentPhotoMsg = await sendPhoto(employmentSendUrl, {
         disable_notification: true,
       });
-      const idPresignedUrl = await getPrivatePresignedUrl(
-        idObjectKey,
-        PRIVATE_PRESIGNED_TTL_SECONDS,
-      );
 
       const record = signup as SignupRecord;
-      const text = formatNotification(record, idPresignedUrl, employmentPresignedUrl);
+      const idLink = buildPhotoUrl(id, 'id');
+      const employmentLink = buildPhotoUrl(id, 'employment');
+      const text = formatNotification(record, idLink, employmentLink);
 
       const notifyMsg = await sendMessage(text, {
         parse_mode: 'HTML',

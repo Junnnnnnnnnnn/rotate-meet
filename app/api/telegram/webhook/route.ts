@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import {
-  deletePublic,
-  deletePrivate,
-  getPrivatePresignedUrl,
-} from '@/lib/r2';
+import { deletePublic, deletePrivate } from '@/lib/r2';
 import {
   sendMessage,
   editMessageText,
@@ -23,6 +19,7 @@ import {
   type SignupRecord,
   type AdminMemo,
 } from '@/lib/format-notification';
+import { buildPhotoUrl } from '@/lib/photo-links';
 import {
   isValidDateStr,
   parseTimeLabel,
@@ -36,7 +33,6 @@ const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
 if (!webhookSecret) throw new Error('TELEGRAM_WEBHOOK_SECRET is not set');
 if (!publicBaseUrl) throw new Error('R2_PUBLIC_BASE_URL is not set');
 
-const PRIVATE_PRESIGNED_TTL_SECONDS = 4 * 60 * 60;
 const OPERATOR_CHAT_ID = parseInt(TELEGRAM_CHAT_ID, 10);
 const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
@@ -464,20 +460,10 @@ async function refreshNotifyMessage(
   signup: SignupRecord,
   notifyMsgId: number,
 ): Promise<void> {
-  let idUrl: string | null = null;
-  if (signup.photo_id_key) {
-    idUrl = await getPrivatePresignedUrl(
-      signup.photo_id_key,
-      PRIVATE_PRESIGNED_TTL_SECONDS,
-    );
-  }
-  let employmentUrl: string | null = null;
-  if (signup.photo_employment_key) {
-    employmentUrl = await getPrivatePresignedUrl(
-      signup.photo_employment_key,
-      PRIVATE_PRESIGNED_TTL_SECONDS,
-    );
-  }
+  const idUrl = signup.photo_id_key ? buildPhotoUrl(signup.id, 'id') : null;
+  const employmentUrl = signup.photo_employment_key
+    ? buildPhotoUrl(signup.id, 'employment')
+    : null;
   const text = formatNotification(signup, idUrl, employmentUrl);
   await editMessageText(notifyMsgId, text, {
     parse_mode: 'HTML',

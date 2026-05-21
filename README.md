@@ -109,13 +109,14 @@ POST /api/submit (multipart/form-data)
 
 ## 🔐 사진 처리 정책
 
-| 사진 종류       | 버킷                                     | 접근 방식                                             | 폐기                                             |
-| --------------- | ---------------------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
-| **얼굴 사진**   | `rotate-meet-public` (`face/{uuid}.jpg`) | 공개 R2.dev URL                                       | 보존                                             |
-| **전신 사진**   | `rotate-meet-public` (`body/{uuid}.jpg`) | 공개 R2.dev URL                                       | 보존                                             |
-| **신분증 사진** | `rotate-meet-private` (`id/{uuid}.jpg`)  | **Presigned URL (4시간 유효)** 링크만 Telegram에 전송 | 운영자가 [🗑 신분증 폐기] 버튼으로 **수동 삭제** |
+| 사진 종류       | 버킷                                            | 접근 방식                                                       | 폐기                                             |
+| --------------- | ----------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| **얼굴 사진**   | `rotate-meet-public` (`face/{uuid}.jpg`)        | 공개 R2.dev URL                                                 | 보존                                             |
+| **전신 사진**   | `rotate-meet-public` (`body/{uuid}.jpg`)        | 공개 R2.dev URL                                                 | 보존                                             |
+| **신분증 사진** | `rotate-meet-private` (`id/{uuid}.jpg`)         | **/api/photo HMAC 서명 링크** → 클릭마다 60초짜리 presigned 발급 후 302 | 운영자가 [🗑 신분증 폐기] 버튼으로 **수동 삭제** |
+| **직업 인증**   | `rotate-meet-private` (`employment/{uuid}.jpg`) | (1) sendPhoto 1회는 5분짜리 presigned (2) 본문 링크는 /api/photo | [🗑 모든 사진 폐기] / [✗ 거절] / 세션 취소       |
 
-> 신분증은 Telegram 채팅에 이미지가 직접 전송되지 않습니다. 운영자는 메시지 안의 "🪪 신분증 보기" 링크를 탭해 브라우저로 확인하고, 본인확인 끝나면 [🗑 신분증 폐기] 버튼으로 R2에서 삭제합니다.
+> 텔레그램 운영 알림에 박히는 "🪪 신분증 보기" / "💼 직업 인증 보기" 링크는 만료되지 않는 안정 URL입니다. 운영자가 링크를 탭하면 `/api/photo/{signupId}/{kind}` 라우트가 HMAC 서명을 검증하고 R2 presigned URL을 즉석에서 새로 만들어 302 리다이렉트합니다. 사진이 폐기된 후에는 같은 링크가 `410 Gone`을 응답합니다. 따라서 메시지가 며칠 지나도 링크는 계속 작동합니다.
 
 ---
 
@@ -467,7 +468,7 @@ PowerShell:
 
 ## 4단계: 환경변수 정리
 
-`.env.local` (로컬 개발) 또는 Vercel 환경변수에 다음 11개:
+`.env.local` (로컬 개발) 또는 Vercel 환경변수에 다음 13개:
 
 ```env
 # Supabase
@@ -486,6 +487,10 @@ R2_PUBLIC_BASE_URL=https://pub-xxxxxxxx.r2.dev
 TELEGRAM_BOT_TOKEN=1234567890:AAxxx...
 TELEGRAM_CHAT_ID=-1234567890
 TELEGRAM_WEBHOOK_SECRET=64자리hex...
+
+# 사진 링크 (운영 알림용 영구 redirect)
+APP_BASE_URL=https://rotate-meet.vercel.app
+PHOTO_LINK_SECRET=64자리hex...
 ```
 
 `.env.example` 파일이 템플릿으로 커밋되어 있으니 복사해 채우면 됩니다.
